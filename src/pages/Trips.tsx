@@ -108,7 +108,7 @@ export default function Trips() {
 function TripDetail({ event, onBack }: { event: EventGroup; onBack: () => void }) {
   const byCat = useMemo(() => {
     const m = new Map<string, number>();
-    event.expenses.forEach((e) => m.set(e.category, (m.get(e.category) ?? 0) + e.total_amount));
+    event.expenses.forEach((e) => m.set(e.category, (m.get(e.category) ?? 0) + getMyAmount(e)));
     return Array.from(m.entries()).sort((a, b) => b[1] - a[1]);
   }, [event]);
 
