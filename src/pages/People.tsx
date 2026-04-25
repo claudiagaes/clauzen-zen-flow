@@ -1,14 +1,34 @@
 import { useEffect, useMemo, useState } from "react";
 import { getExpenses, getSplits, type Expense, type ExpenseSplit } from "@/lib/data";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/format";
-import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Bell, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 const ME = "Claudia";
+const DEFAULT_CURRENCY = "EUR";
 
 export default function People() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [splits, setSplits] = useState<ExpenseSplit[]>([]);
+  const [sendingTo, setSendingTo] = useState<string | null>(null);
+
+  const sendReminder = async (person: string, amount: number) => {
+    setSendingTo(person);
+    try {
+      // TODO: When Lovable Cloud / Supabase is connected, replace with:
+      // await supabase.from("reminder_requests").insert({
+      //   person_name: person, amount_owed: amount, currency: DEFAULT_CURRENCY,
+      // });
+      await new Promise((r) => setTimeout(r, 500));
+      toast.success(`Reminder request sent to ${person} ✅`);
+    } catch (err) {
+      toast.error("Couldn't send reminder. Try again.");
+    } finally {
+      setSendingTo(null);
+    }
+  };
 
   useEffect(() => {
     getExpenses().then(setExpenses);
@@ -104,6 +124,24 @@ export default function People() {
                 <span>Pending {formatMoney(b.pending)}</span>
                 <span>Settled {formatMoney(b.settled)}</span>
               </div>
+              {owedToMe && !settled && (
+                <Button
+                  onClick={() => sendReminder(b.person, b.net)}
+                  disabled={sendingTo === b.person}
+                  className="mt-4 w-full rounded-2xl bg-owed-soft text-owed hover:bg-owed-soft/80 border-0 shadow-none"
+                  variant="secondary"
+                >
+                  {sendingTo === b.person ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" /> Sending…
+                    </>
+                  ) : (
+                    <>
+                      <Bell className="h-4 w-4" /> Send Reminder 🔔
+                    </>
+                  )}
+                </Button>
+              )}
             </Card>
           );
         })}
