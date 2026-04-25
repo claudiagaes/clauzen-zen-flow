@@ -14,7 +14,8 @@ import {
 } from "@/lib/data";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate } from "@/lib/format";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { DateFilter, type DatePresetKey, type DateRange, presetToRange } from "@/components/DateFilter";
 import { ChevronDown, Check, X, Plus } from "lucide-react";
 import {
@@ -38,6 +39,7 @@ export default function Expenses() {
   const [currency, setCurrency] = useState<string>("all");
   const [openId, setOpenId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const { format, convert } = useCurrency();
 
   const refresh = () => getExpenses().then(setAll);
   useEffect(() => { refresh(); }, []);
@@ -118,7 +120,7 @@ export default function Expenses() {
           />
 
           <span className="ml-auto text-xs text-muted-foreground">
-            {filtered.length} results · {formatMoney(filtered.reduce((a, x) => a + getMyAmount(x), 0))} your share
+            {filtered.length} results · {format(filtered.reduce((a, x) => a + convert(getMyAmount(x), x.currency), 0))} your share
           </span>
         </div>
       </Card>
