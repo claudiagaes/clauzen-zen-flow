@@ -54,29 +54,41 @@ export default function People() {
       if (!map.has(p)) map.set(p, { net: 0, theyOwe: 0, iOwe: 0, pending: 0, settled: 0 });
       return map.get(p)!;
     };
+    // Direction convention:
+    // - If `person_name` starts with "[You owe]", the split represents money I owe that person
+    //   (regardless of who is recorded as `paid_by` — used for imported balance summaries).
+    // - Otherwise, the standard rule applies: if I paid, they owe me; if they paid, I owe them.
+    const OWE_PREFIX_RE = /^\s*\[you owe\]\s*/i;
     for (const s of splits) {
       const e = expenseById.get(s.expense_id);
       if (!e) continue;
-      // Only relate splits where I am one of the two sides.
-      if (s.person_name !== ME && e.paid_by !== ME) continue;
-      const other = e.paid_by === ME ? s.person_name : e.paid_by;
+      const hasOwePrefix = OWE_PREFIX_RE.test(s.person_name);
+      const cleanName = s.person_name.replace(OWE_PREFIX_RE, "").trim();
+      // Only relate splits where I am one of the two sides (or it's a tagged balance row).
+      if (!hasOwePrefix && cleanName !== ME && e.paid_by !== ME) continue;
+      const other = hasOwePrefix
+        ? cleanName
+        : e.paid_by === ME
+          ? cleanName
+          : e.paid_by;
       if (other === ME) continue;
       const b = get(other);
       const amount = toDisplayAmount(s.amount_owed, e.currency);
+
+      // Determine direction.
+      const iOweThem = hasOwePrefix ? true : e.paid_by !== ME;
 
       if (s.is_paid) {
         // Paid → already settled; do NOT add to net or open balances.
         b.settled += amount;
       } else {
         b.pending += amount;
-        if (e.paid_by === ME) {
-          // They owe me.
-          b.net += amount;
-          b.theyOwe += amount;
-        } else {
-          // I owe them.
+        if (iOweThem) {
           b.net -= amount;
           b.iOwe += amount;
+        } else {
+          b.net += amount;
+          b.theyOwe += amount;
         }
       }
     }
