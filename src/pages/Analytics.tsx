@@ -59,7 +59,33 @@ export default function Analytics() {
   const [dateRange, setDateRange] = useState<DateRangeKey>("this-year");
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
   const [customTo, setCustomTo] = useState<Date | undefined>();
+  const [customOpen, setCustomOpen] = useState(false);
+  const [draftFrom, setDraftFrom] = useState<Date | undefined>();
+  const [draftTo, setDraftTo] = useState<Date | undefined>();
   const { display, format: formatMoney, formatNative, convert } = useCurrency();
+
+  // When opening the picker, seed drafts with the currently applied range
+  useEffect(() => {
+    if (customOpen) {
+      setDraftFrom(customFrom);
+      setDraftTo(customTo);
+    }
+  }, [customOpen, customFrom, customTo]);
+
+  const applyCustom = () => {
+    setCustomFrom(draftFrom);
+    setCustomTo(draftTo);
+    setDateRange("custom");
+    setCustomOpen(false);
+  };
+
+  const clearCustom = () => {
+    setDraftFrom(undefined);
+    setDraftTo(undefined);
+    setCustomFrom(undefined);
+    setCustomTo(undefined);
+  };
+
 
   useEffect(() => {
     getExpenses().then(setAll);
@@ -207,7 +233,7 @@ export default function Analytics() {
       {/* Date range filter */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex flex-wrap items-center gap-1 bg-secondary rounded-2xl p-1">
-          {DATE_RANGES.map((r) => (
+          {DATE_RANGES.filter((r) => r.key !== "custom").map((r) => (
             <button
               key={r.key}
               onClick={() => setDateRange(r.key)}
@@ -221,77 +247,102 @@ export default function Analytics() {
               {r.label}
             </button>
           ))}
+          <Popover open={customOpen} onOpenChange={setCustomOpen}>
+            <PopoverTrigger asChild>
+              <button
+                className={cn(
+                  "px-3 py-1.5 text-xs rounded-xl transition-colors inline-flex items-center gap-1.5",
+                  dateRange === "custom"
+                    ? "bg-card text-foreground shadow-soft"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                <CalendarIcon className="h-3 w-3" />
+                {dateRange === "custom" && (customFrom || customTo)
+                  ? `${customFrom ? formatDateFns(customFrom, "MMM d, yyyy") : "…"} → ${customTo ? formatDateFns(customTo, "MMM d, yyyy") : "…"}`
+                  : "Custom range"}
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 rounded-2xl" align="start">
+              <div className="p-4 space-y-3">
+                <div className="text-xs uppercase tracking-widest text-muted-foreground font-medium">
+                  Pick a date range
+                </div>
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div>
+                    <div className="text-[11px] text-muted-foreground mb-1.5 font-medium">From</div>
+                    <div className="rounded-xl border border-border">
+                      <Calendar
+                        mode="single"
+                        selected={draftFrom}
+                        onSelect={setDraftFrom}
+                        defaultMonth={draftFrom ?? draftTo ?? new Date()}
+                        captionLayout="dropdown-buttons"
+                        fromYear={2015}
+                        toYear={new Date().getFullYear() + 1}
+                        className={cn("p-2 pointer-events-auto")}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-muted-foreground mb-1.5 font-medium">To</div>
+                    <div className="rounded-xl border border-border">
+                      <Calendar
+                        mode="single"
+                        selected={draftTo}
+                        onSelect={setDraftTo}
+                        defaultMonth={draftTo ?? draftFrom ?? new Date()}
+                        captionLayout="dropdown-buttons"
+                        fromYear={2015}
+                        toYear={new Date().getFullYear() + 1}
+                        className={cn("p-2 pointer-events-auto")}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-2 pt-1">
+                  <div className="text-xs text-muted-foreground tabular-nums">
+                    {draftFrom || draftTo ? (
+                      <>
+                        {draftFrom ? formatDateFns(draftFrom, "MMM d, yyyy") : "—"}
+                        {" → "}
+                        {draftTo ? formatDateFns(draftTo, "MMM d, yyyy") : "—"}
+                      </>
+                    ) : (
+                      "No range selected"
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="rounded-xl text-xs h-8"
+                      onClick={() => setCustomOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="rounded-xl text-xs h-8"
+                      disabled={!draftFrom && !draftTo}
+                      onClick={applyCustom}
+                    >
+                      Apply
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
         </div>
 
-        {dateRange === "custom" && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "rounded-2xl text-xs h-9",
-                    !customFrom && "text-muted-foreground",
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                  {customFrom ? formatDateFns(customFrom, "PP") : "From"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={customFrom}
-                  onSelect={setCustomFrom}
-                  defaultMonth={customFrom ?? customTo ?? new Date()}
-                  captionLayout="dropdown-buttons"
-                  fromYear={2015}
-                  toYear={new Date().getFullYear() + 1}
-                  initialFocus
-                  className={cn("p-3 pointer-events-auto")}
-                />
-              </PopoverContent>
-            </Popover>
-            <span className="text-xs text-muted-foreground">→</span>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    "rounded-2xl text-xs h-9",
-                    !customTo && "text-muted-foreground",
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                  {customTo ? formatDateFns(customTo, "PP") : "To"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={customTo}
-                  onSelect={setCustomTo}
-                  defaultMonth={customTo ?? customFrom ?? new Date()}
-                  captionLayout="dropdown-buttons"
-                  fromYear={2015}
-                  toYear={new Date().getFullYear() + 1}
-                  initialFocus
-                  className={cn("p-3 pointer-events-auto")}
-                />
-              </PopoverContent>
-            </Popover>
-            {(customFrom || customTo) && (
-              <button
-                onClick={() => {
-                  setCustomFrom(undefined);
-                  setCustomTo(undefined);
-                }}
-                className="text-xs text-muted-foreground hover:text-foreground underline"
-              >
-                clear
-              </button>
-            )}
-          </div>
+        {dateRange === "custom" && (customFrom || customTo) && (
+          <button
+            onClick={clearCustom}
+            className="text-xs text-muted-foreground hover:text-foreground underline"
+          >
+            clear range
+          </button>
         )}
       </div>
 
