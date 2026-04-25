@@ -11,7 +11,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CATEGORIES, createExpense, getContacts, type Contact, type Currency, type NewExpenseInput } from "@/lib/data";
-import { Loader2, Plus, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Check, ChevronsUpDown, Loader2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
