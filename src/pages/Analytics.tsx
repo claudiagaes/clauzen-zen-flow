@@ -97,7 +97,7 @@ export default function Analytics() {
       const d = new Date(e.date);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const cur = map.get(key) ?? { total: 0, count: 0 };
-      cur.total += toUSD(getMyAmount(e), e.currency);
+      cur.total += convert(getMyAmount(e), e.currency);
       cur.count += 1;
       map.set(key, cur);
     }
@@ -123,7 +123,7 @@ export default function Analytics() {
     });
     const m = new Map<string, number>();
     inMonth.forEach((e) =>
-      m.set(e.category, (m.get(e.category) ?? 0) + toUSD(getMyAmount(e), e.currency)),
+      m.set(e.category, (m.get(e.category) ?? 0) + convert(getMyAmount(e), e.currency)),
     );
     return Array.from(m.entries())
       .map(([cat, amount]) => ({
@@ -152,11 +152,11 @@ export default function Analytics() {
       const d = new Date(e.date);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
-    const monthTotal = monthExpenses.reduce((a, e) => a + toUSD(getMyAmount(e), e.currency), 0);
+    const monthTotal = monthExpenses.reduce((a, e) => a + convert(getMyAmount(e), e.currency), 0);
 
     const catMap = new Map<string, number>();
     monthExpenses.forEach((e) =>
-      catMap.set(e.category, (catMap.get(e.category) ?? 0) + toUSD(getMyAmount(e), e.currency)),
+      catMap.set(e.category, (catMap.get(e.category) ?? 0) + convert(getMyAmount(e), e.currency)),
     );
     const topThisMonth = Array.from(catMap.entries()).sort((a, b) => b[1] - a[1])[0];
 
@@ -166,20 +166,20 @@ export default function Analytics() {
         const d = new Date(e.date);
         return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
       })
-      .reduce((a, e) => a + toUSD(getMyAmount(e), e.currency), 0);
+      .reduce((a, e) => a + convert(getMyAmount(e), e.currency), 0);
 
     const pctDelta =
       lastMonthTotal > 0 ? ((monthTotal - lastMonthTotal) / lastMonthTotal) * 100 : null;
 
     const biggest = [...filtered].sort(
-      (a, b) => toUSD(getMyAmount(b), b.currency) - toUSD(getMyAmount(a), a.currency),
+      (a, b) => convert(getMyAmount(b), b.currency) - convert(getMyAmount(a), a.currency),
     )[0];
 
     const tripMap = new Map<string, { total: number; count: number }>();
     filtered.forEach((e) => {
       if (!e.event_tag) return;
       const cur = tripMap.get(e.event_tag) ?? { total: 0, count: 0 };
-      cur.total += toUSD(getMyAmount(e), e.currency);
+      cur.total += convert(getMyAmount(e), e.currency);
       cur.count += 1;
       tripMap.set(e.event_tag, cur);
     });
@@ -298,7 +298,7 @@ export default function Analytics() {
               {topCat.meta.emoji} {topCat.meta.key}
             </div>
             <div className="text-sm text-muted-foreground mt-1 tabular-nums">
-              {formatUSD(topCat.amount)}
+              {formatMoney(topCat.amount)}
             </div>
           </Card>
         ) : (
@@ -313,7 +313,7 @@ export default function Analytics() {
           <div className="text-xs text-foreground/70 uppercase tracking-widest font-medium">
             Monthly average
           </div>
-          <div className="font-display text-3xl mt-2 tabular-nums">{formatUSD(avgMonthly)}</div>
+          <div className="font-display text-3xl mt-2 tabular-nums">{formatMoney(avgMonthly)}</div>
           <div className="text-xs text-muted-foreground mt-1">
             across {byMonth.length} {byMonth.length === 1 ? "month" : "months"} with data
           </div>
@@ -408,7 +408,7 @@ export default function Analytics() {
                   tickLine={false}
                   axisLine={false}
                   fontSize={11}
-                  tickFormatter={(v) => formatUSD(v)}
+                  tickFormatter={(v) => formatMoney(v)}
                 />
                 <Tooltip
                   contentStyle={{
@@ -433,7 +433,7 @@ export default function Analytics() {
                       >
                         <div className="font-medium">{p.label}</div>
                         <div className="text-muted-foreground mt-0.5">
-                          <span className="tabular-nums text-foreground">{formatUSD(p.total)}</span>
+                          <span className="tabular-nums text-foreground">{formatMoney(p.total)}</span>
                           {" "}across {p.count} {p.count === 1 ? "expense" : "expenses"}
                         </div>
                       </div>
@@ -474,7 +474,7 @@ export default function Analytics() {
                   tickLine={false}
                   axisLine={false}
                   fontSize={11}
-                  tickFormatter={(v) => formatUSD(v)}
+                  tickFormatter={(v) => formatMoney(v)}
                 />
                 <YAxis
                   type="category"
@@ -499,7 +499,7 @@ export default function Analytics() {
                     boxShadow: "var(--shadow-card)",
                     fontSize: 12,
                   }}
-                  formatter={(v: number) => formatUSD(v)}
+                  formatter={(v: number) => formatMoney(v)}
                 />
                 <Bar dataKey="amount" radius={[8, 8, 8, 8]}>
                   {thisMonthCats.map((entry) => (
@@ -526,7 +526,7 @@ export default function Analytics() {
                 {getCategoryMeta(insights.topThisMonth[0]).emoji}{" "}
                 {getCategoryMeta(insights.topThisMonth[0]).key}
               </span>{" "}
-              ({formatUSD(insights.topThisMonth[1])}).
+              ({formatMoney(insights.topThisMonth[1])}).
             </p>
           ) : (
             <p className="text-muted-foreground">No spending recorded this month yet.</p>
@@ -552,11 +552,11 @@ export default function Analytics() {
               Your biggest single expense was{" "}
               <span className="font-medium">{insights.biggest.description}</span> at{" "}
               <span className="tabular-nums">
-                {formatUSD(toUSD(getMyAmount(insights.biggest), insights.biggest.currency))}
+                {formatMoney(convert(getMyAmount(insights.biggest), insights.biggest.currency))}
               </span>
               {insights.biggest.currency !== "USD" && (
                 <span className="text-muted-foreground">
-                  {" "}(converted from {formatOriginal(getMyAmount(insights.biggest), insights.biggest.currency)})
+                  {" "}(converted from {formatNative(getMyAmount(insights.biggest), insights.biggest.currency)})
                 </span>
               )}
               {" "}(your share).
@@ -566,7 +566,7 @@ export default function Analytics() {
           {insights.topTrip && (
             <p>
               Your <span className="font-medium">{insights.topTrip[0]}</span> trip cost{" "}
-              <span className="tabular-nums">{formatUSD(insights.topTrip[1].total)}</span>{" "}
+              <span className="tabular-nums">{formatMoney(insights.topTrip[1].total)}</span>{" "}
               total across {insights.topTrip[1].count}{" "}
               {insights.topTrip[1].count === 1 ? "expense" : "expenses"}.
             </p>
