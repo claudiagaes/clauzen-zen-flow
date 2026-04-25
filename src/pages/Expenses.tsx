@@ -71,8 +71,8 @@ export default function Expenses() {
 
   const filtered = useMemo(() => {
     return all.filter((x) => {
-      // Hide zero-amount placeholder rows (e.g. imported "Splitwise Balances" entries with $0).
-      if (Math.abs(x.total_amount) < 0.005) return false;
+      // Hide zero-share placeholder rows.
+      if (Math.abs(getMyAmount(x)) < 0.005) return false;
       if (dateRange) {
         const t = +new Date(x.date);
         if (t < +dateRange.from || t > +dateRange.to) return false;
