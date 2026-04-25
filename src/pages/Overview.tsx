@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { getExpenses, type Expense, getCategoryMeta } from "@/lib/data";
-import { MonthPicker } from "@/components/MonthPicker";
+import { DateFilter, type DatePresetKey, type DateRange, presetToRange } from "@/components/DateFilter";
 import { CategoryChip } from "@/components/CategoryChip";
-import { formatMoney, formatDate, startOfMonth, endOfMonth } from "@/lib/format";
+import { formatMoney, formatDate, toDisplayAmount } from "@/lib/format";
 import { Card } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Link } from "react-router-dom";
@@ -11,31 +11,39 @@ import { ArrowUpRight } from "lucide-react";
 const FIRST_NAME = "Claudia";
 
 export default function Overview() {
-  const [month, setMonth] = useState(() => startOfMonth(new Date()));
+  const [datePreset, setDatePreset] = useState<DatePresetKey>("this-month");
+  const [dateRange, setDateRange] = useState<DateRange>(presetToRange("this-month"));
   const [all, setAll] = useState<Expense[]>([]);
 
   useEffect(() => { getExpenses().then(setAll); }, []);
 
-  const monthExpenses = useMemo(() => {
-    const s = +startOfMonth(month);
-    const e = +endOfMonth(month);
+  const filteredExpenses = useMemo(() => {
+    if (!dateRange) return all;
+    const s = +dateRange.from;
+    const e = +dateRange.to;
     return all.filter((x) => {
       const t = +new Date(x.date);
       return t >= s && t <= e;
     });
-  }, [all, month]);
+  }, [all, dateRange]);
 
-  const total = monthExpenses.reduce((acc, x) => acc + x.total_amount, 0);
+  // All sums in display currency (USD).
+  const total = filteredExpenses.reduce(
+    (acc, x) => acc + toDisplayAmount(x.total_amount, x.currency),
+    0,
+  );
 
   const byCat = useMemo(() => {
     const map = new Map<string, number>();
-    monthExpenses.forEach((x) => map.set(x.category, (map.get(x.category) ?? 0) + x.total_amount));
+    filteredExpenses.forEach((x) =>
+      map.set(x.category, (map.get(x.category) ?? 0) + toDisplayAmount(x.total_amount, x.currency)),
+    );
     return Array.from(map.entries())
       .map(([category, amount]) => ({ category, amount, meta: getCategoryMeta(category) }))
       .sort((a, b) => b.amount - a.amount);
-  }, [monthExpenses]);
+  }, [filteredExpenses]);
 
-  const recent = monthExpenses.slice(0, 6);
+  const recent = filteredExpenses.slice(0, 6);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Hey" : "Good evening";
@@ -51,9 +59,16 @@ export default function Overview() {
       </section>
 
       <div className="flex items-center justify-between flex-wrap gap-4">
-        <MonthPicker value={month} onChange={setMonth} />
+        <DateFilter
+          preset={datePreset}
+          range={dateRange}
+          onChange={(p, r) => {
+            setDatePreset(p);
+            setDateRange(r);
+          }}
+        />
         <span className="text-xs text-muted-foreground">
-          {monthExpenses.length} {monthExpenses.length === 1 ? "expense" : "expenses"} this month
+          {filteredExpenses.length} {filteredExpenses.length === 1 ? "expense" : "expenses"}
         </span>
       </div>
 

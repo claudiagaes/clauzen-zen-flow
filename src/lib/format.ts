@@ -1,12 +1,33 @@
-export function formatMoney(amount: number, currency: string = "EUR") {
+// Display currency for the whole app.
+export const DISPLAY_CURRENCY = "USD";
+
+// Static FX rates → USD. Approximate; good enough for a personal dashboard.
+// Update here if you want different rates.
+const TO_USD: Record<string, number> = {
+  USD: 1,
+  EUR: 1.08,
+  GBP: 1.27,
+};
+
+export function toDisplayAmount(amount: number, currency: string = "USD") {
+  const rate = TO_USD[currency?.toUpperCase()] ?? 1;
+  return amount * rate;
+}
+
+export function formatMoney(amount: number, currency: string = DISPLAY_CURRENCY) {
+  // Convert to display currency first, then format.
+  const value =
+    currency.toUpperCase() === DISPLAY_CURRENCY
+      ? amount
+      : toDisplayAmount(amount, currency);
   try {
-    return new Intl.NumberFormat("en-IE", {
+    return new Intl.NumberFormat("en-US", {
       style: "currency",
-      currency,
-      maximumFractionDigits: amount % 1 === 0 ? 0 : 2,
-    }).format(amount);
+      currency: DISPLAY_CURRENCY,
+      maximumFractionDigits: value % 1 === 0 ? 0 : 2,
+    }).format(value);
   } catch {
-    return `${currency} ${amount.toFixed(2)}`;
+    return `${DISPLAY_CURRENCY} ${value.toFixed(2)}`;
   }
 }
 
