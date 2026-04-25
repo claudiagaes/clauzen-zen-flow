@@ -147,12 +147,12 @@ export default function Analytics() {
       const d = new Date(e.date);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
-    const monthTotal = monthExpenses.reduce((a, e) => a + e.total_amount, 0);
+    const monthTotal = monthExpenses.reduce((a, e) => a + getMyAmount(e), 0);
 
     // Top category this month (within filter)
     const catMap = new Map<string, number>();
     monthExpenses.forEach((e) =>
-      catMap.set(e.category, (catMap.get(e.category) ?? 0) + e.total_amount),
+      catMap.set(e.category, (catMap.get(e.category) ?? 0) + getMyAmount(e)),
     );
     const topThisMonth = Array.from(catMap.entries()).sort((a, b) => b[1] - a[1])[0];
 
@@ -163,21 +163,20 @@ export default function Analytics() {
         const d = new Date(e.date);
         return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
       })
-      .reduce((a, e) => a + e.total_amount, 0);
+      .reduce((a, e) => a + getMyAmount(e), 0);
 
     const pctDelta =
       lastMonthTotal > 0 ? ((monthTotal - lastMonthTotal) / lastMonthTotal) * 100 : null;
 
-    // Biggest single expense in scope
-    const biggest = [...filtered].sort((a, b) => b.total_amount - a.total_amount)[0];
+    // Biggest single expense in scope (by user's share)
+    const biggest = [...filtered].sort((a, b) => getMyAmount(b) - getMyAmount(a))[0];
 
-    // If a trip/event tag is being indirectly highlighted via category? Skip — show trip rollups
     // Group by event_tag in scope to see if there's a notable trip
     const tripMap = new Map<string, { total: number; count: number }>();
     filtered.forEach((e) => {
       if (!e.event_tag) return;
       const cur = tripMap.get(e.event_tag) ?? { total: 0, count: 0 };
-      cur.total += e.total_amount;
+      cur.total += getMyAmount(e);
       cur.count += 1;
       tripMap.set(e.event_tag, cur);
     });
