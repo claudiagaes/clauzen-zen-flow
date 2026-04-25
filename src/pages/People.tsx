@@ -94,15 +94,6 @@ export default function People() {
     for (const s of splits) {
       const e = expenseById.get(s.expense_id);
       if (!e) continue;
-      // Skip noise: zero-amount splits (e.g. "Splitwise Balances" rows with 0).
-      const amountAbs = Math.abs(s.amount_owed);
-      if (amountAbs < 0.005) continue;
-      if (
-        Math.abs(e.total_amount) < 0.005 &&
-        /splitwise\s*balances?/i.test(e.description ?? "")
-      )
-        continue;
-
       const hasOwePrefix = OWE_PREFIX_RE.test(s.person_name);
       const cleanName = s.person_name.replace(OWE_PREFIX_RE, "").trim();
       // Only relate splits where I am one of the two sides (or it's a tagged balance row).
