@@ -27,16 +27,16 @@ export default function Overview() {
     });
   }, [all, dateRange]);
 
-  // All sums in display currency (USD).
+  // All sums in display currency (USD), based on the user's personal share.
   const total = filteredExpenses.reduce(
-    (acc, x) => acc + toDisplayAmount(x.total_amount, x.currency),
+    (acc, x) => acc + toDisplayAmount(getMyAmount(x), x.currency),
     0,
   );
 
   const byCat = useMemo(() => {
     const map = new Map<string, number>();
     filteredExpenses.forEach((x) =>
-      map.set(x.category, (map.get(x.category) ?? 0) + toDisplayAmount(x.total_amount, x.currency)),
+      map.set(x.category, (map.get(x.category) ?? 0) + toDisplayAmount(getMyAmount(x), x.currency)),
     );
     return Array.from(map.entries())
       .map(([category, amount]) => ({ category, amount, meta: getCategoryMeta(category) }))
