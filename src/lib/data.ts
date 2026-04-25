@@ -200,22 +200,51 @@ for (const s of SEEDS) {
   }
 }
 
-// ---------- Public API ----------
+// ---------- Public API (Supabase-backed) ----------
+
+import { supabase } from "./supabase";
+
+function logIfError(label: string, error: unknown) {
+  if (error) console.error(`[data] ${label} failed:`, error);
+}
 
 export async function getExpenses(): Promise<Expense[]> {
-  return [...expenses].sort((a, b) => +new Date(b.date) - +new Date(a.date));
+  const { data, error } = await supabase
+    .from("expenses")
+    .select("*")
+    .order("date", { ascending: false });
+  logIfError("getExpenses", error);
+  return (data ?? []) as Expense[];
 }
+
 export async function getSplits(): Promise<ExpenseSplit[]> {
-  return splits;
+  const { data, error } = await supabase.from("expense_splits").select("*");
+  logIfError("getSplits", error);
+  return (data ?? []) as ExpenseSplit[];
 }
+
 export async function getItems(): Promise<ExpenseItem[]> {
-  return items;
+  const { data, error } = await supabase.from("expense_items").select("*");
+  logIfError("getItems", error);
+  return (data ?? []) as ExpenseItem[];
 }
+
 export async function getSplitsForExpense(expenseId: string): Promise<ExpenseSplit[]> {
-  return splits.filter((s) => s.expense_id === expenseId);
+  const { data, error } = await supabase
+    .from("expense_splits")
+    .select("*")
+    .eq("expense_id", expenseId);
+  logIfError("getSplitsForExpense", error);
+  return (data ?? []) as ExpenseSplit[];
 }
+
 export async function getItemsForExpense(expenseId: string): Promise<ExpenseItem[]> {
-  return items.filter((i) => i.expense_id === expenseId);
+  const { data, error } = await supabase
+    .from("expense_items")
+    .select("*")
+    .eq("expense_id", expenseId);
+  logIfError("getItemsForExpense", error);
+  return (data ?? []) as ExpenseItem[];
 }
 
 export const PEOPLE_LIST = PEOPLE;
