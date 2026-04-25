@@ -235,7 +235,7 @@ export default function Analytics() {
                   )}
                 >
                   <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                  {customFrom ? format(customFrom, "PP") : "From"}
+                  {customFrom ? formatDateFns(customFrom, "PP") : "From"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
@@ -259,7 +259,7 @@ export default function Analytics() {
                   )}
                 >
                   <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                  {customTo ? format(customTo, "PP") : "To"}
+                  {customTo ? formatDateFns(customTo, "PP") : "To"}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
