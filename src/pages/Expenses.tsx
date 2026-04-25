@@ -11,8 +11,8 @@ import {
 } from "@/lib/data";
 import { CategoryChip } from "@/components/CategoryChip";
 import { Card } from "@/components/ui/card";
-import { formatDate, formatMoney, startOfMonth, endOfMonth } from "@/lib/format";
-import { MonthPicker } from "@/components/MonthPicker";
+import { formatDate, formatMoney } from "@/lib/format";
+import { DateFilter, type DatePresetKey, type DateRange, presetToRange } from "@/components/DateFilter";
 import { ChevronDown, Check, X } from "lucide-react";
 import {
   Select,
@@ -24,7 +24,8 @@ import {
 
 export default function Expenses() {
   const [all, setAll] = useState<Expense[]>([]);
-  const [month, setMonth] = useState<Date | null>(startOfMonth(new Date()));
+  const [datePreset, setDatePreset] = useState<DatePresetKey>("this-month");
+  const [dateRange, setDateRange] = useState<DateRange>(presetToRange("this-month"));
   const [category, setCategory] = useState<string>("all");
   const [event, setEvent] = useState<string>("all");
   const [currency, setCurrency] = useState<string>("all");
@@ -40,16 +41,16 @@ export default function Expenses() {
 
   const filtered = useMemo(() => {
     return all.filter((x) => {
-      if (month) {
+      if (dateRange) {
         const t = +new Date(x.date);
-        if (t < +startOfMonth(month) || t > +endOfMonth(month)) return false;
+        if (t < +dateRange.from || t > +dateRange.to) return false;
       }
       if (category !== "all" && x.category !== category) return false;
       if (event !== "all" && x.event_tag !== event) return false;
       if (currency !== "all" && x.currency !== currency) return false;
       return true;
     });
-  }, [all, month, category, event, currency]);
+  }, [all, dateRange, category, event, currency]);
 
   return (
     <div className="space-y-8 pt-4 fade-in">
@@ -60,13 +61,14 @@ export default function Expenses() {
 
       <Card className="rounded-3xl border-0 shadow-soft bg-card p-4 md:p-5">
         <div className="flex flex-wrap items-center gap-3">
-          <MonthPicker value={month ?? new Date()} onChange={setMonth} />
-          <button
-            onClick={() => setMonth(month ? null : startOfMonth(new Date()))}
-            className="text-xs text-muted-foreground hover:text-primary px-2"
-          >
-            {month ? "Clear month" : "Filter month"}
-          </button>
+          <DateFilter
+            preset={datePreset}
+            range={dateRange}
+            onChange={(p, r) => {
+              setDatePreset(p);
+              setDateRange(r);
+            }}
+          />
 
           <FilterSelect value={category} onChange={setCategory} placeholder="All categories"
             options={[{ value: "all", label: "All categories" }, ...CATEGORIES.map(c => ({ value: c.key, label: `${c.emoji} ${c.key}` }))]}
