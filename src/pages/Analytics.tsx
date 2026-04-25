@@ -59,6 +59,7 @@ export default function Analytics() {
   const [dateRange, setDateRange] = useState<DateRangeKey>("this-year");
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
   const [customTo, setCustomTo] = useState<Date | undefined>();
+  const { display, format: formatMoney, formatNative, convert } = useCurrency();
 
   useEffect(() => {
     getExpenses().then(setAll);
