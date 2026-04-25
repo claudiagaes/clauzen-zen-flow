@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Home, Receipt, Users, MapPin, BarChart3, Moon, Sun } from "lucide-react";
+import { Home, Receipt, Users, MapPin, BarChart3 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -10,11 +10,8 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarHeader,
-  SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
-import { useEffect, useState } from "react";
 
 const items = [
   { title: "Overview", url: "/", icon: Home },
@@ -28,11 +25,7 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
   const location = useLocation();
-  const [dark, setDark] = useState(false);
 
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark);
-  }, [dark]);
 
   return (
     <Sidebar collapsible="icon" className="border-r-0">
@@ -81,18 +74,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-
-      <SidebarFooter className="p-3">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setDark((d) => !d)}
-          className="rounded-2xl justify-start gap-2 text-muted-foreground hover:text-foreground"
-        >
-          {dark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          {!collapsed && <span className="text-xs">{dark ? "Light mode" : "Dark mode"}</span>}
-        </Button>
-      </SidebarFooter>
     </Sidebar>
   );
 }
+

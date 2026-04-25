@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { getCategoryMeta, getExpenses, getMyAmount, type Expense } from "@/lib/data";
 import { getEventFlag } from "@/lib/eventIcon";
 import { Card } from "@/components/ui/card";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate } from "@/lib/format";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { CategoryChip } from "@/components/CategoryChip";
 import { ChevronLeft, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ interface EventGroup {
 export default function Trips() {
   const [all, setAll] = useState<Expense[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
+  const { format, convert } = useCurrency();
 
   useEffect(() => { getExpenses().then(setAll); }, []);
 
@@ -31,9 +33,11 @@ export default function Trips() {
     }
     return Array.from(groups.entries()).map(([name, list]) => {
       const sorted = [...list].sort((a, b) => +new Date(a.date) - +new Date(b.date));
-      const total = list.reduce((a, x) => a + getMyAmount(x), 0);
+      const total = list.reduce((a, x) => a + convert(getMyAmount(x), x.currency), 0);
       const catTotals = new Map<string, number>();
-      list.forEach((x) => catTotals.set(x.category, (catTotals.get(x.category) ?? 0) + getMyAmount(x)));
+      list.forEach((x) =>
+        catTotals.set(x.category, (catTotals.get(x.category) ?? 0) + convert(getMyAmount(x), x.currency)),
+      );
       const topCategory = Array.from(catTotals.entries()).sort((a, b) => b[1] - a[1])[0][0];
       return {
         name,
@@ -44,7 +48,7 @@ export default function Trips() {
         topCategory,
       };
     }).sort((a, b) => +new Date(b.start) - +new Date(a.start));
-  }, [all]);
+  }, [all, convert]);
 
   if (selected) {
     const ev = events.find((e) => e.name === selected);
@@ -86,7 +90,7 @@ export default function Trips() {
                   <div className="mt-4 flex items-end justify-between">
                     <div>
                       <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Total</div>
-                      <div className="font-display text-2xl tabular-nums">{formatMoney(ev.total)}</div>
+                      <div className="font-display text-2xl tabular-nums">{format(ev.total)}</div>
                     </div>
                     <CategoryChip category={ev.topCategory} size="sm" />
                   </div>
@@ -106,11 +110,14 @@ export default function Trips() {
 }
 
 function TripDetail({ event, onBack }: { event: EventGroup; onBack: () => void }) {
+  const { format, convert, isConverted, formatNative } = useCurrency();
   const byCat = useMemo(() => {
     const m = new Map<string, number>();
-    event.expenses.forEach((e) => m.set(e.category, (m.get(e.category) ?? 0) + getMyAmount(e)));
+    event.expenses.forEach((e) =>
+      m.set(e.category, (m.get(e.category) ?? 0) + convert(getMyAmount(e), e.currency)),
+    );
     return Array.from(m.entries()).sort((a, b) => b[1] - a[1]);
-  }, [event]);
+  }, [event, convert]);
 
   return (
     <div className="space-y-8 pt-4 fade-in">
@@ -129,7 +136,7 @@ function TripDetail({ event, onBack }: { event: EventGroup; onBack: () => void }
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card className="rounded-3xl border-0 shadow-soft p-6 bg-card md:col-span-1">
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Total</div>
-          <div className="font-display text-4xl mt-2 tabular-nums">{formatMoney(event.total)}</div>
+          <div className="font-display text-4xl mt-2 tabular-nums">{format(event.total)}</div>
         </Card>
         <Card className="rounded-3xl border-0 shadow-soft p-6 bg-card md:col-span-2">
           <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3">Breakdown</div>
@@ -141,7 +148,7 @@ function TripDetail({ event, onBack }: { event: EventGroup; onBack: () => void }
                 <div key={cat}>
                   <div className="flex items-center justify-between text-xs mb-1">
                     <span className="text-foreground/80">{meta.emoji} {cat}</span>
-                    <span className="tabular-nums text-muted-foreground">{formatMoney(amount)}</span>
+                    <span className="tabular-nums text-muted-foreground">{format(amount)}</span>
                   </div>
                   <div className="h-2 rounded-full bg-secondary overflow-hidden">
                     <div
@@ -160,6 +167,7 @@ function TripDetail({ event, onBack }: { event: EventGroup; onBack: () => void }
         <ul>
           {event.expenses.map((e, i) => {
             const meta = getCategoryMeta(e.category);
+            const converted = isConverted(e.currency);
             return (
               <li key={e.id} className={`flex items-center gap-4 px-5 py-4 ${i === 0 ? "" : "border-t border-border/50"}`}>
                 <div
@@ -172,7 +180,14 @@ function TripDetail({ event, onBack }: { event: EventGroup; onBack: () => void }
                   <div className="text-sm font-medium truncate">{e.description}</div>
                   <div className="text-xs text-muted-foreground">{formatDate(e.date)} · paid by {e.paid_by}</div>
                 </div>
-                <div className="text-sm font-medium tabular-nums">{formatMoney(getMyAmount(e), e.currency)}</div>
+                <div className="text-right">
+                  <div className="text-sm font-medium tabular-nums">{format(getMyAmount(e), e.currency)}</div>
+                  {converted && (
+                    <div className="text-[10px] text-muted-foreground tabular-nums mt-0.5">
+                      converted from {formatNative(getMyAmount(e), e.currency)}
+                    </div>
+                  )}
+                </div>
               </li>
             );
           })}

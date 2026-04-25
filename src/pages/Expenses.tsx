@@ -14,7 +14,8 @@ import {
 } from "@/lib/data";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatDate, formatMoney } from "@/lib/format";
+import { formatDate } from "@/lib/format";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { DateFilter, type DatePresetKey, type DateRange, presetToRange } from "@/components/DateFilter";
 import { ChevronDown, Check, X, Plus } from "lucide-react";
 import {
@@ -38,6 +39,7 @@ export default function Expenses() {
   const [currency, setCurrency] = useState<string>("all");
   const [openId, setOpenId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const { format, convert } = useCurrency();
 
   const refresh = () => getExpenses().then(setAll);
   useEffect(() => { refresh(); }, []);
@@ -118,7 +120,7 @@ export default function Expenses() {
           />
 
           <span className="ml-auto text-xs text-muted-foreground">
-            {filtered.length} results · {formatMoney(filtered.reduce((a, x) => a + getMyAmount(x), 0))} your share
+            {filtered.length} results · {format(filtered.reduce((a, x) => a + convert(getMyAmount(x), x.currency), 0))} your share
           </span>
         </div>
       </Card>
@@ -182,6 +184,8 @@ function ExpenseRow({
   first: boolean;
 }) {
   const meta = getCategoryMeta(expense.category);
+  const { format, formatNative, isConverted } = useCurrency();
+  const converted = isConverted(expense.currency);
   const [splits, setSplits] = useState<ExpenseSplit[]>([]);
   const [items, setItems] = useState<ExpenseItem[]>([]);
 
@@ -233,11 +237,16 @@ function ExpenseRow({
           className="text-right w-28"
         >
           <div className="text-sm font-medium tabular-nums">
-            {formatMoney(getMyAmount(expense), expense.currency)}
+            {format(getMyAmount(expense), expense.currency)}
           </div>
+          {converted && (
+            <div className="text-[10px] text-muted-foreground tabular-nums mt-0.5">
+              from {formatNative(getMyAmount(expense), expense.currency)}
+            </div>
+          )}
           {expense.is_shared && expense.my_amount !== null && Math.abs(expense.my_amount - expense.total_amount) > 0.005 && (
             <div className="text-[10px] text-muted-foreground tabular-nums mt-0.5">
-              of {formatMoney(expense.total_amount, expense.currency)}
+              of {format(expense.total_amount, expense.currency)}
             </div>
           )}
         </button>
@@ -256,14 +265,24 @@ function ExpenseRow({
             <div>
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Your share</div>
               <div className="font-display text-2xl tabular-nums mt-1">
-                {formatMoney(getMyAmount(expense), expense.currency)}
+                {format(getMyAmount(expense), expense.currency)}
               </div>
+              {converted && (
+                <div className="text-[10px] text-muted-foreground tabular-nums mt-1">
+                  converted from {formatNative(getMyAmount(expense), expense.currency)}
+                </div>
+              )}
             </div>
             <div className="text-right">
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Total bill</div>
               <div className="text-sm text-muted-foreground tabular-nums mt-1">
-                {formatMoney(expense.total_amount, expense.currency)}
+                {format(expense.total_amount, expense.currency)}
               </div>
+              {converted && (
+                <div className="text-[10px] text-muted-foreground tabular-nums mt-0.5">
+                  from {formatNative(expense.total_amount, expense.currency)}
+                </div>
+              )}
             </div>
           </div>
           <div className="rounded-2xl bg-secondary/50 p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -278,7 +297,7 @@ function ExpenseRow({
                       <span className="text-foreground/80">
                         {i.item_name} {i.assigned_to && <span className="text-xs text-muted-foreground">· {i.assigned_to}</span>}
                       </span>
-                      <span className="tabular-nums text-foreground/70">{formatMoney(i.amount, expense.currency)}</span>
+                      <span className="tabular-nums text-foreground/70">{format(i.amount, expense.currency)}</span>
                     </li>
                   ))}
                 </ul>
@@ -308,7 +327,7 @@ function ExpenseRow({
                         {s.person_name}
                       </span>
                       <span className="tabular-nums text-foreground/70">
-                        {formatMoney(s.amount_owed, expense.currency)}
+                        {format(s.amount_owed, expense.currency)}
                       </span>
                     </li>
                   ))}

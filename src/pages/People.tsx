@@ -12,7 +12,8 @@ import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { formatMoney, toDisplayAmount, DISPLAY_CURRENCY, formatDate } from "@/lib/format";
+import { formatDate, DISPLAY_CURRENCY } from "@/lib/format";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { ArrowDownLeft, ArrowUpRight, Bell, ChevronDown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ export default function People() {
   const [expandedExpenseId, setExpandedExpenseId] = useState<string | null>(null);
   const [itemsByExpense, setItemsByExpense] = useState<Record<string, ExpenseItem[]>>({});
   const [loadingItemsFor, setLoadingItemsFor] = useState<string | null>(null);
+  const { format, convert } = useCurrency();
 
   const toggleExpenseItems = async (expenseId: string) => {
     if (expandedExpenseId === expenseId) {
@@ -105,7 +107,7 @@ export default function People() {
           : e.paid_by;
       if (other === ME) continue;
       const b = get(other);
-      const amount = toDisplayAmount(s.amount_owed, e.currency);
+      const amount = convert(s.amount_owed, e.currency);
 
       // Determine direction.
       const iOweThem = hasOwePrefix ? true : e.paid_by !== ME;
@@ -134,7 +136,7 @@ export default function People() {
           b.settled > 0.005,
       )
       .sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
-  }, [expenses, splits]);
+  }, [expenses, splits, convert]);
 
   const totalOwedToMe = balances.filter((b) => b.net > 0.005).reduce((a, b) => a + b.net, 0);
   const totalIOwe = balances.filter((b) => b.net < -0.005).reduce((a, b) => a + Math.abs(b.net), 0);
@@ -176,7 +178,7 @@ export default function People() {
         date: e.date,
         description: e.description,
         category: e.category,
-        amount: toDisplayAmount(s.amount_owed, e.currency),
+        amount: convert(s.amount_owed, e.currency),
         direction: iOweThem ? "i-owe" : "they-owe",
         is_paid: s.is_paid,
       });
@@ -185,7 +187,7 @@ export default function People() {
     const open = rows.filter((r) => !r.is_paid);
     const settled = rows.filter((r) => r.is_paid);
     return { rows, open, settled };
-  }, [selectedPerson, expenses, splits]);
+  }, [selectedPerson, expenses, splits, convert]);
 
   const selectedBalance = selectedPerson
     ? balances.find((b) => b.person === selectedPerson)
@@ -218,7 +220,7 @@ export default function People() {
               </span>
             </div>
             <div className="font-display text-4xl mt-2 tabular-nums text-foreground">
-              {formatMoney(totalOwedToMe)}
+              {format(totalOwedToMe)}
             </div>
           </Card>
         </button>
@@ -242,7 +244,7 @@ export default function People() {
               </span>
             </div>
             <div className="font-display text-4xl mt-2 tabular-nums text-foreground">
-              {formatMoney(totalIOwe)}
+              {format(totalIOwe)}
             </div>
           </Card>
         </button>
@@ -295,12 +297,12 @@ export default function People() {
                       settled ? "text-muted-foreground" : owedToMe ? "text-owed" : "text-owe"
                     }`}
                   >
-                    {settled ? formatMoney(0) : formatMoney(Math.abs(b.net))}
+                    {settled ? format(0) : format(Math.abs(b.net))}
                   </div>
                 </div>
                 <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Pending {formatMoney(b.pending)}</span>
-                  <span>Settled {formatMoney(b.settled)}</span>
+                  <span>Pending {format(b.pending)}</span>
+                  <span>Settled {format(b.settled)}</span>
                 </div>
               </button>
               {owedToMe && !settled && (
@@ -357,8 +359,8 @@ export default function People() {
                     ? Math.abs(selectedBalance.net) < 0.005
                       ? "All settled ✨"
                       : selectedBalance.net > 0
-                        ? `Owes you ${formatMoney(selectedBalance.net)}`
-                        : `You owe ${formatMoney(Math.abs(selectedBalance.net))}`
+                        ? `Owes you ${format(selectedBalance.net)}`
+                        : `You owe ${format(Math.abs(selectedBalance.net))}`
                     : ""}
                 </DialogDescription>
               </div>
@@ -411,7 +413,7 @@ export default function People() {
                               }`}
                             >
                               {owedToMe ? "+" : "−"}
-                              {formatMoney(r.amount)}
+                              {format(r.amount)}
                             </div>
                             <ChevronDown
                               className={cn(
@@ -442,7 +444,7 @@ export default function People() {
                                         )}
                                       </div>
                                       <span className="tabular-nums text-muted-foreground">
-                                        {formatMoney(toDisplayAmount(it.amount, expenses.find((e) => e.id === r.expense_id)?.currency ?? "USD"))}
+                                        {format(convert(it.amount, expenses.find((e) => e.id === r.expense_id)?.currency ?? "USD"))}
                                       </span>
                                     </li>
                                   ))}
@@ -486,7 +488,7 @@ export default function People() {
                             </div>
                           </div>
                           <div className="font-display text-sm tabular-nums text-muted-foreground">
-                            {formatMoney(r.amount)}
+                            {format(r.amount)}
                           </div>
                         </li>
                       );
