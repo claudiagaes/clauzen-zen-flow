@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { getExpenses, getMyAmount, type Expense, getCategoryMeta } from "@/lib/data";
 import { DateFilter, type DatePresetKey, type DateRange, presetToRange } from "@/components/DateFilter";
 import { CategoryChip } from "@/components/CategoryChip";
-import { formatMoney, formatDate, toDisplayAmount } from "@/lib/format";
+import { formatDate } from "@/lib/format";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { Card } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Link } from "react-router-dom";
@@ -14,6 +15,7 @@ export default function Overview() {
   const [datePreset, setDatePreset] = useState<DatePresetKey>("this-month");
   const [dateRange, setDateRange] = useState<DateRange>(presetToRange("this-month"));
   const [all, setAll] = useState<Expense[]>([]);
+  const { format, convert } = useCurrency();
 
   useEffect(() => { getExpenses().then(setAll); }, []);
 
@@ -27,21 +29,21 @@ export default function Overview() {
     });
   }, [all, dateRange]);
 
-  // All sums in display currency (USD), based on the user's personal share.
+  // All sums in the active display currency, based on the user's personal share.
   const total = filteredExpenses.reduce(
-    (acc, x) => acc + toDisplayAmount(getMyAmount(x), x.currency),
+    (acc, x) => acc + convert(getMyAmount(x), x.currency),
     0,
   );
 
   const byCat = useMemo(() => {
     const map = new Map<string, number>();
     filteredExpenses.forEach((x) =>
-      map.set(x.category, (map.get(x.category) ?? 0) + toDisplayAmount(getMyAmount(x), x.currency)),
+      map.set(x.category, (map.get(x.category) ?? 0) + convert(getMyAmount(x), x.currency)),
     );
     return Array.from(map.entries())
       .map(([category, amount]) => ({ category, amount, meta: getCategoryMeta(category) }))
       .sort((a, b) => b.amount - a.amount);
-  }, [filteredExpenses]);
+  }, [filteredExpenses, convert]);
 
   const recent = filteredExpenses.slice(0, 6);
 
@@ -76,7 +78,7 @@ export default function Overview() {
       <Card className="rounded-3xl border-0 shadow-card bg-card p-8 md:p-10 rise-in" style={{ animationDelay: "60ms" }}>
         <div className="text-xs uppercase tracking-widest text-muted-foreground">Total spent</div>
         <div className="font-display text-5xl md:text-7xl mt-3 text-foreground tabular-nums">
-          {formatMoney(total)}
+          {format(total)}
         </div>
         <div className="mt-3 text-sm text-muted-foreground">
           Across {byCat.length} {byCat.length === 1 ? "category" : "categories"} · breathe in, breathe out.
@@ -116,7 +118,7 @@ export default function Overview() {
                       boxShadow: "var(--shadow-card)",
                       fontSize: 12,
                     }}
-                    formatter={(v: number) => formatMoney(v)}
+                    formatter={(v: number) => format(v)}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -162,7 +164,7 @@ export default function Overview() {
                     {formatDate(e.date)} {e.event_tag && <>· {e.event_tag}</>}
                   </div>
                 </div>
-                <div className="text-sm font-medium tabular-nums">{formatMoney(getMyAmount(e), e.currency)}</div>
+                <div className="text-sm font-medium tabular-nums">{format(getMyAmount(e), e.currency)}</div>
               </li>
             ))}
           </ul>
