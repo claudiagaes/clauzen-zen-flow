@@ -345,7 +345,6 @@ export default function Analytics() {
           </button>
         )}
       </div>
-      </div>
 
       {/* Insights cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
