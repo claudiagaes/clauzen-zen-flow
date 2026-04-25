@@ -194,11 +194,13 @@ export default function Analytics() {
         <div>
           <h1 className="font-display text-3xl md:text-4xl">Analytics</h1>
           <p className="text-muted-foreground mt-1">
-            Patterns, gently revealed. All amounts shown in USD.
+            Patterns, gently revealed. All amounts shown in {display}.
           </p>
         </div>
         <div className="text-xs text-muted-foreground bg-secondary rounded-2xl px-3 py-2">
-          Rates: 1 EUR = $1.08 · 1 MXN = $0.05
+          {display === "MXN"
+            ? "Rates: 1 USD = $18.5 MXN · 1 EUR = $20 MXN"
+            : "Rates: 1 EUR = $1.08 · 1 MXN ≈ $0.054"}
         </div>
       </header>
 
