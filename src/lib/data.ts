@@ -8,6 +8,8 @@ export interface Expense {
   date: string; // ISO
   description: string;
   total_amount: number;
+  /** The user's personal share of the expense. May be null for legacy rows; fall back to total_amount. */
+  my_amount: number | null;
   currency: Currency;
   category: string;
   paid_by: string;
