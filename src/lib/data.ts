@@ -88,6 +88,11 @@ export function getCategoryMeta(category: string) {
   );
 }
 
+/** Returns the user's personal share for an expense, falling back to total_amount when null. */
+export function getMyAmount(e: Pick<Expense, "my_amount" | "total_amount">): number {
+  return e.my_amount ?? e.total_amount;
+}
+
 // ---------- Mock dataset (shaped like Supabase rows) ----------
 
 const today = new Date();
