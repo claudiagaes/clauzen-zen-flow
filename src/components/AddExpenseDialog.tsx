@@ -234,32 +234,44 @@ export function AddExpenseDialog({ open, onOpenChange, onCreated }: Props) {
 
           <div className="space-y-2">
             <Label className="text-xs">Shared with</Label>
-            <div className="flex flex-wrap gap-2">
-              {people
-                .filter((p) => p !== paidBy)
-                .map((p) => {
-                  const active = sharedWith.includes(p);
-                  return (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => togglePerson(p)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-colors ${
-                        active
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-secondary text-foreground/70 hover:bg-secondary/70"
-                      }`}
-                    >
-                      {active ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
-                      {p === ME ? "You" : p}
-                    </button>
-                  );
-                })}
-            </div>
-            {sharedWith.length === 0 && (
+            {loadingContacts ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" /> Loading contacts…
+              </div>
+            ) : contactNames.length === 0 ? (
               <p className="text-[11px] text-muted-foreground">
-                Leave empty for a personal expense (no splits created).
+                No contacts yet. Add some to your contacts table to split expenses.
               </p>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {people
+                    .filter((p) => p !== paidBy)
+                    .map((p) => {
+                      const active = sharedWith.includes(p);
+                      return (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => togglePerson(p)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-colors ${
+                            active
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-secondary text-foreground/70 hover:bg-secondary/70"
+                          }`}
+                        >
+                          {active ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+                          {p === ME ? "You" : p}
+                        </button>
+                      );
+                    })}
+                </div>
+                {sharedWith.length === 0 && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Leave empty for a personal expense (no splits created).
+                  </p>
+                )}
+              </>
             )}
           </div>
 
