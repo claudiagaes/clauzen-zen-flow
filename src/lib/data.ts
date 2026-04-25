@@ -38,25 +38,50 @@ export interface ExpenseItem {
 
 export const CATEGORIES = [
   { key: "Food & Dining", emoji: "🍽️", token: "cat-food" },
-  { key: "Drinks", emoji: "🍺", token: "cat-drinks" },
+  { key: "Drinks & Nightlife", emoji: "🍺", token: "cat-drinks" },
   { key: "Groceries", emoji: "🛒", token: "cat-groceries" },
   { key: "Shopping", emoji: "🛍️", token: "cat-shopping" },
   { key: "Transport", emoji: "🚗", token: "cat-transport" },
-  { key: "Travel", emoji: "✈️", token: "cat-travel" },
-  { key: "Rent", emoji: "🏠", token: "cat-rent" },
-  { key: "Bills", emoji: "💡", token: "cat-bills" },
+  { key: "Trips & Travel", emoji: "✈️", token: "cat-travel" },
+  { key: "Rent & Housing", emoji: "🏠", token: "cat-rent" },
+  { key: "Bills & Utilities", emoji: "💡", token: "cat-bills" },
   { key: "Entertainment", emoji: "🎬", token: "cat-entertainment" },
-  { key: "Health", emoji: "💊", token: "cat-health" },
+  { key: "Health & Pharmacy", emoji: "💊", token: "cat-health" },
   { key: "Education", emoji: "🎓", token: "cat-education" },
   { key: "Pets", emoji: "🐾", token: "cat-pets" },
-  { key: "Home", emoji: "🧹", token: "cat-home" },
+  { key: "Home & Cleaning", emoji: "🧹", token: "cat-home" },
   { key: "Gifts", emoji: "🎁", token: "cat-gifts" },
   { key: "Other", emoji: "📦", token: "cat-other" },
 ] as const;
 
+// Aliases map legacy / Splitwise / abbreviated names → canonical CATEGORIES key.
+const CATEGORY_ALIASES: Record<string, string> = {
+  "drinks": "Drinks & Nightlife",
+  "nightlife": "Drinks & Nightlife",
+  "travel": "Trips & Travel",
+  "trips": "Trips & Travel",
+  "rent": "Rent & Housing",
+  "housing": "Rent & Housing",
+  "bills": "Bills & Utilities",
+  "utilities": "Bills & Utilities",
+  "health": "Health & Pharmacy",
+  "pharmacy": "Health & Pharmacy",
+  "home": "Home & Cleaning",
+  "cleaning": "Home & Cleaning",
+};
+
+export function resolveCategory(category: string): string {
+  if (!category) return "Other";
+  const exact = CATEGORIES.find((c) => c.key.toLowerCase() === category.toLowerCase());
+  if (exact) return exact.key;
+  const alias = CATEGORY_ALIASES[category.toLowerCase()];
+  return alias ?? "Other";
+}
+
 export function getCategoryMeta(category: string) {
+  const resolved = resolveCategory(category);
   return (
-    CATEGORIES.find((c) => c.key.toLowerCase() === category.toLowerCase()) ??
+    CATEGORIES.find((c) => c.key === resolved) ??
     CATEGORIES[CATEGORIES.length - 1]
   );
 }
