@@ -1,6 +1,7 @@
 // Edge function: ask natural-language questions about the user's expenses.
 // The client sends the (already-filtered) expense rows + chat history.
-// We send them, plus a tight system prompt, to Lovable AI Gateway and stream the answer back.
+// We send them, plus a tight system prompt, to Lovable AI Gateway and return the answer.
+// v2 — added explicit deploy trigger
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
