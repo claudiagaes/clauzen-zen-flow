@@ -243,6 +243,10 @@ export default function Analytics() {
                   mode="single"
                   selected={customFrom}
                   onSelect={setCustomFrom}
+                  defaultMonth={customFrom ?? customTo ?? new Date()}
+                  captionLayout="dropdown-buttons"
+                  fromYear={2015}
+                  toYear={new Date().getFullYear() + 1}
                   initialFocus
                   className={cn("p-3 pointer-events-auto")}
                 />
@@ -267,6 +271,10 @@ export default function Analytics() {
                   mode="single"
                   selected={customTo}
                   onSelect={setCustomTo}
+                  defaultMonth={customTo ?? customFrom ?? new Date()}
+                  captionLayout="dropdown-buttons"
+                  fromYear={2015}
+                  toYear={new Date().getFullYear() + 1}
                   initialFocus
                   className={cn("p-3 pointer-events-auto")}
                 />
