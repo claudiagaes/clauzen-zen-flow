@@ -12,6 +12,23 @@ const DEFAULT_CURRENCY = "EUR";
 export default function People() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [splits, setSplits] = useState<ExpenseSplit[]>([]);
+  const [sendingTo, setSendingTo] = useState<string | null>(null);
+
+  const sendReminder = async (person: string, amount: number) => {
+    setSendingTo(person);
+    try {
+      // TODO: When Lovable Cloud / Supabase is connected, replace with:
+      // await supabase.from("reminder_requests").insert({
+      //   person_name: person, amount_owed: amount, currency: DEFAULT_CURRENCY,
+      // });
+      await new Promise((r) => setTimeout(r, 500));
+      toast.success(`Reminder request sent to ${person} ✅`);
+    } catch (err) {
+      toast.error("Couldn't send reminder. Try again.");
+    } finally {
+      setSendingTo(null);
+    }
+  };
 
   useEffect(() => {
     getExpenses().then(setExpenses);
