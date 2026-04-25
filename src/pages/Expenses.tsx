@@ -251,7 +251,21 @@ function ExpenseRow({
       </div>
 
       {isOpen && (
-        <div className="px-5 pb-5 pt-1 fade-in">
+        <div className="px-5 pb-5 pt-1 fade-in space-y-4">
+          <div className="rounded-2xl bg-card border border-border/60 px-5 py-4 flex items-baseline justify-between gap-4">
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Your share</div>
+              <div className="font-display text-2xl tabular-nums mt-1">
+                {formatMoney(getMyAmount(expense), expense.currency)}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Total bill</div>
+              <div className="text-sm text-muted-foreground tabular-nums mt-1">
+                {formatMoney(expense.total_amount, expense.currency)}
+              </div>
+            </div>
+          </div>
           <div className="rounded-2xl bg-secondary/50 p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3">Items</div>
