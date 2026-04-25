@@ -74,6 +74,7 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-
+    </Sidebar>
   );
 }
+
