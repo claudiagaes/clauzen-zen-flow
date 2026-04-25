@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getCategoryMeta, getExpenses, CATEGORIES, type Expense } from "@/lib/data";
+import { getCategoryMeta, getExpenses, getMyAmount, CATEGORIES, type Expense } from "@/lib/data";
 import { Card } from "@/components/ui/card";
 import {
   Area,
