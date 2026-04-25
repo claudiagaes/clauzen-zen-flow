@@ -297,7 +297,7 @@ function ExpenseRow({
                       <span className="text-foreground/80">
                         {i.item_name} {i.assigned_to && <span className="text-xs text-muted-foreground">· {i.assigned_to}</span>}
                       </span>
-                      <span className="tabular-nums text-foreground/70">{formatMoney(i.amount, expense.currency)}</span>
+                      <span className="tabular-nums text-foreground/70">{format(i.amount, expense.currency)}</span>
                     </li>
                   ))}
                 </ul>
@@ -327,7 +327,7 @@ function ExpenseRow({
                         {s.person_name}
                       </span>
                       <span className="tabular-nums text-foreground/70">
-                        {formatMoney(s.amount_owed, expense.currency)}
+                        {format(s.amount_owed, expense.currency)}
                       </span>
                     </li>
                   ))}
