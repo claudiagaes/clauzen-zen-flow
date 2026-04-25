@@ -170,8 +170,16 @@ function FilterSelect({
 }
 
 function ExpenseRow({
-  expense, isOpen, onToggle, onCategoryChange, first,
-}: { expense: Expense; isOpen: boolean; onToggle: () => void; onCategoryChange: (next: string) => void; first: boolean }) {
+  expense, isOpen, onToggle, onCategoryChange, onEventTagChange, eventOptions, first,
+}: {
+  expense: Expense;
+  isOpen: boolean;
+  onToggle: () => void;
+  onCategoryChange: (next: string) => void;
+  onEventTagChange: (next: string | null) => void;
+  eventOptions: string[];
+  first: boolean;
+}) {
   const meta = getCategoryMeta(expense.category);
   const [splits, setSplits] = useState<ExpenseSplit[]>([]);
   const [items, setItems] = useState<ExpenseItem[]>([]);
@@ -205,12 +213,18 @@ function ExpenseRow({
           <div className="text-sm font-medium truncate">{expense.description}</div>
           <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
             <span>{formatDate(expense.date, { month: "short", day: "numeric", year: "numeric" })}</span>
-            {expense.event_tag && <><span>·</span><span className="text-foreground/70">{expense.event_tag}</span></>}
             {expense.is_shared && <><span>·</span><span className="text-primary">shared</span></>}
           </div>
         </button>
         <div className="hidden md:block">
           <CategoryEditor value={expense.category} onChange={onCategoryChange} />
+        </div>
+        <div className="hidden md:block">
+          <EventTagEditor
+            value={expense.event_tag}
+            onChange={onEventTagChange}
+            options={eventOptions}
+          />
         </div>
         <button
           type="button"
