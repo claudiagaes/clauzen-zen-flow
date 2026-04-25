@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getCategoryMeta, getExpenses, type Expense } from "@/lib/data";
+import { getEventFlag } from "@/lib/eventIcon";
 import { Card } from "@/components/ui/card";
 import { formatDate, formatMoney } from "@/lib/format";
 import { CategoryChip } from "@/components/CategoryChip";
