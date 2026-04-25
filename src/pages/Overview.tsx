@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getExpenses, type Expense, getCategoryMeta } from "@/lib/data";
+import { getExpenses, getMyAmount, type Expense, getCategoryMeta } from "@/lib/data";
 import { DateFilter, type DatePresetKey, type DateRange, presetToRange } from "@/components/DateFilter";
 import { CategoryChip } from "@/components/CategoryChip";
 import { formatMoney, formatDate, toDisplayAmount } from "@/lib/format";
