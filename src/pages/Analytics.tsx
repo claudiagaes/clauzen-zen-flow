@@ -14,7 +14,7 @@ import {
   YAxis,
 } from "recharts";
 import { cn } from "@/lib/utils";
-import { ExpenseChat } from "@/components/ExpenseChat";
+
 
 type CurrencyCode = "USD" | "EUR" | "MXN";
 const CURRENCIES: { code: CurrencyCode; symbol: string; label: string }[] = [
@@ -495,8 +495,14 @@ export default function Analytics() {
         </div>
       </Card>
 
-      {/* AI chat about expenses */}
-      <ExpenseChat expenses={scoped} currency={currency} />
+      {/* Rockie WhatsApp banner */}
+      <Card className="rounded-3xl border-0 shadow-soft p-5 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10">
+        <p className="text-sm sm:text-base text-foreground leading-relaxed">
+          <span className="mr-1">💬</span>
+          <span className="font-display text-lg mr-1">Ask Rockie about your spending</span>
+          — send a WhatsApp message to get instant AI insights about your expenses.
+        </p>
+      </Card>
     </div>
   );
 }
