@@ -59,7 +59,33 @@ export default function Analytics() {
   const [dateRange, setDateRange] = useState<DateRangeKey>("this-year");
   const [customFrom, setCustomFrom] = useState<Date | undefined>();
   const [customTo, setCustomTo] = useState<Date | undefined>();
+  const [customOpen, setCustomOpen] = useState(false);
+  const [draftFrom, setDraftFrom] = useState<Date | undefined>();
+  const [draftTo, setDraftTo] = useState<Date | undefined>();
   const { display, format: formatMoney, formatNative, convert } = useCurrency();
+
+  // When opening the picker, seed drafts with the currently applied range
+  useEffect(() => {
+    if (customOpen) {
+      setDraftFrom(customFrom);
+      setDraftTo(customTo);
+    }
+  }, [customOpen, customFrom, customTo]);
+
+  const applyCustom = () => {
+    setCustomFrom(draftFrom);
+    setCustomTo(draftTo);
+    setDateRange("custom");
+    setCustomOpen(false);
+  };
+
+  const clearCustom = () => {
+    setDraftFrom(undefined);
+    setDraftTo(undefined);
+    setCustomFrom(undefined);
+    setCustomTo(undefined);
+  };
+
 
   useEffect(() => {
     getExpenses().then(setAll);
