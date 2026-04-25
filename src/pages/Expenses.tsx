@@ -6,6 +6,7 @@ import {
   getItemsForExpense,
   getSplitsForExpense,
   updateExpenseCategory,
+  updateExpenseEventTag,
   type Expense,
   type ExpenseItem,
   type ExpenseSplit,
@@ -23,6 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CategoryEditor } from "@/components/CategoryEditor";
+import { EventTagEditor } from "@/components/EventTagEditor";
 import { AddExpenseDialog } from "@/components/AddExpenseDialog";
 import { toast } from "sonner";
 
