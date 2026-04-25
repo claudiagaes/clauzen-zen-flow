@@ -369,28 +369,84 @@ export default function People() {
                     {personDetails.open.map((r) => {
                       const meta = getCategoryMeta(r.category);
                       const owedToMe = r.direction === "they-owe";
+                      const isExpanded = expandedExpenseId === r.expense_id;
+                      const items = itemsByExpense[r.expense_id];
+                      const isLoading = loadingItemsFor === r.expense_id;
+                      // Items relevant to this person: assigned to them, assigned to ME (still split), or unassigned (shared).
+                      const relevantItems = items
+                        ? items.filter(
+                            (it) =>
+                              !it.assigned_to ||
+                              it.assigned_to === selectedPerson ||
+                              it.assigned_to === ME,
+                          )
+                        : [];
                       return (
-                        <li
-                          key={r.id}
-                          className="flex items-center gap-3 p-3 rounded-2xl bg-secondary/50"
-                        >
-                          <div className="h-10 w-10 rounded-xl bg-background flex items-center justify-center text-lg">
-                            {meta.emoji}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="font-medium truncate">{r.description}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {formatDate(r.date)} · {r.category}
-                            </div>
-                          </div>
-                          <div
-                            className={`font-display text-lg tabular-nums ${
-                              owedToMe ? "text-owed" : "text-owe"
-                            }`}
+                        <li key={r.id} className="rounded-2xl bg-secondary/50 overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => toggleExpenseItems(r.expense_id)}
+                            className="w-full flex items-center gap-3 p-3 text-left hover:bg-secondary/70 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-2xl"
+                            aria-expanded={isExpanded}
                           >
-                            {owedToMe ? "+" : "−"}
-                            {formatMoney(r.amount)}
-                          </div>
+                            <div className="h-10 w-10 rounded-xl bg-background flex items-center justify-center text-lg">
+                              {meta.emoji}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium truncate">{r.description}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {formatDate(r.date)} · {r.category}
+                              </div>
+                            </div>
+                            <div
+                              className={`font-display text-lg tabular-nums ${
+                                owedToMe ? "text-owed" : "text-owe"
+                              }`}
+                            >
+                              {owedToMe ? "+" : "−"}
+                              {formatMoney(r.amount)}
+                            </div>
+                            <ChevronDown
+                              className={cn(
+                                "h-4 w-4 text-muted-foreground transition-transform",
+                                isExpanded && "rotate-180",
+                              )}
+                            />
+                          </button>
+                          {isExpanded && (
+                            <div className="px-3 pb-3 pt-1 border-t border-border/40 bg-background/40">
+                              {isLoading ? (
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground py-3">
+                                  <Loader2 className="h-3 w-3 animate-spin" /> Loading items…
+                                </div>
+                              ) : relevantItems.length > 0 ? (
+                                <ul className="space-y-1.5 mt-2">
+                                  {relevantItems.map((it) => (
+                                    <li
+                                      key={it.id}
+                                      className="flex items-center justify-between text-sm py-1"
+                                    >
+                                      <div className="min-w-0 flex-1">
+                                        <span className="truncate">{it.item_name}</span>
+                                        {it.assigned_to && (
+                                          <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+                                            {it.assigned_to === ME ? "you" : it.assigned_to}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <span className="tabular-nums text-muted-foreground">
+                                        {formatMoney(toDisplayAmount(it.amount, expenses.find((e) => e.id === r.expense_id)?.currency ?? "USD"))}
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <div className="text-xs text-muted-foreground py-3">
+                                  No itemized breakdown for this expense.
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </li>
                       );
                     })}
