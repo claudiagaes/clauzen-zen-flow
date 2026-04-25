@@ -237,11 +237,16 @@ function ExpenseRow({
           className="text-right w-28"
         >
           <div className="text-sm font-medium tabular-nums">
-            {formatMoney(getMyAmount(expense), expense.currency)}
+            {format(getMyAmount(expense), expense.currency)}
           </div>
+          {converted && (
+            <div className="text-[10px] text-muted-foreground tabular-nums mt-0.5">
+              from {formatNative(getMyAmount(expense), expense.currency)}
+            </div>
+          )}
           {expense.is_shared && expense.my_amount !== null && Math.abs(expense.my_amount - expense.total_amount) > 0.005 && (
             <div className="text-[10px] text-muted-foreground tabular-nums mt-0.5">
-              of {formatMoney(expense.total_amount, expense.currency)}
+              of {format(expense.total_amount, expense.currency)}
             </div>
           )}
         </button>
@@ -260,14 +265,24 @@ function ExpenseRow({
             <div>
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Your share</div>
               <div className="font-display text-2xl tabular-nums mt-1">
-                {formatMoney(getMyAmount(expense), expense.currency)}
+                {format(getMyAmount(expense), expense.currency)}
               </div>
+              {converted && (
+                <div className="text-[10px] text-muted-foreground tabular-nums mt-1">
+                  converted from {formatNative(getMyAmount(expense), expense.currency)}
+                </div>
+              )}
             </div>
             <div className="text-right">
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Total bill</div>
               <div className="text-sm text-muted-foreground tabular-nums mt-1">
-                {formatMoney(expense.total_amount, expense.currency)}
+                {format(expense.total_amount, expense.currency)}
               </div>
+              {converted && (
+                <div className="text-[10px] text-muted-foreground tabular-nums mt-0.5">
+                  from {formatNative(expense.total_amount, expense.currency)}
+                </div>
+              )}
             </div>
           </div>
           <div className="rounded-2xl bg-secondary/50 p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
