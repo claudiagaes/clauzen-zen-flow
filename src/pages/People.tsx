@@ -145,6 +145,7 @@ export default function People() {
     const OWE_PREFIX_RE = /^\s*\[you owe\]\s*/i;
     type Row = {
       id: string;
+      expense_id: string;
       date: string;
       description: string;
       category: string;
@@ -164,6 +165,7 @@ export default function People() {
       const iOweThem = hasOwePrefix ? true : e.paid_by !== ME;
       rows.push({
         id: s.id,
+        expense_id: s.expense_id,
         date: e.date,
         description: e.description,
         category: e.category,
