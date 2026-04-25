@@ -62,6 +62,7 @@ export default function Trips() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {events.map((ev, i) => {
           const meta = getCategoryMeta(ev.topCategory);
+          const flag = getEventFlag(ev.name);
           return (
             <button
               key={ev.name}
@@ -74,7 +75,7 @@ export default function Trips() {
                   className="h-28 flex items-end p-5 relative"
                   style={{ backgroundColor: `hsl(var(--${meta.token}))` }}
                 >
-                  <div className="text-4xl absolute top-4 right-4 opacity-90">{meta.emoji}</div>
+                  <div className="text-4xl absolute top-4 right-4 opacity-90">{flag ?? meta.emoji}</div>
                   <MapPin className="h-4 w-4 text-foreground/50" />
                 </div>
                 <div className="p-5">
