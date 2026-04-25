@@ -476,9 +476,9 @@ export default function Analytics() {
               Your biggest single expense was{" "}
               <span className="font-medium">{insights.biggest.description}</span> at{" "}
               <span className="tabular-nums">
-                {formatInCurrency(insights.biggest.total_amount, currency)}
+                {formatInCurrency(getMyAmount(insights.biggest), currency)}
               </span>
-              .
+              {" "}(your share).
             </p>
           )}
 
