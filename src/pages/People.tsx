@@ -108,6 +108,50 @@ export default function People() {
     return balances;
   }, [balances, filter]);
 
+  // Per-person expense breakdown for the detail dialog.
+  const personDetails = useMemo(() => {
+    if (!selectedPerson) return null;
+    const expenseById = new Map(expenses.map((e) => [e.id, e]));
+    const OWE_PREFIX_RE = /^\s*\[you owe\]\s*/i;
+    type Row = {
+      id: string;
+      date: string;
+      description: string;
+      category: string;
+      amount: number; // in display currency
+      direction: "they-owe" | "i-owe";
+      is_paid: boolean;
+    };
+    const rows: Row[] = [];
+    for (const s of splits) {
+      const e = expenseById.get(s.expense_id);
+      if (!e) continue;
+      const hasOwePrefix = OWE_PREFIX_RE.test(s.person_name);
+      const cleanName = s.person_name.replace(OWE_PREFIX_RE, "").trim();
+      if (!hasOwePrefix && cleanName !== ME && e.paid_by !== ME) continue;
+      const other = hasOwePrefix ? cleanName : e.paid_by === ME ? cleanName : e.paid_by;
+      if (other !== selectedPerson) continue;
+      const iOweThem = hasOwePrefix ? true : e.paid_by !== ME;
+      rows.push({
+        id: s.id,
+        date: e.date,
+        description: e.description,
+        category: e.category,
+        amount: toDisplayAmount(s.amount_owed, e.currency),
+        direction: iOweThem ? "i-owe" : "they-owe",
+        is_paid: s.is_paid,
+      });
+    }
+    rows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const open = rows.filter((r) => !r.is_paid);
+    const settled = rows.filter((r) => r.is_paid);
+    return { rows, open, settled };
+  }, [selectedPerson, expenses, splits]);
+
+  const selectedBalance = selectedPerson
+    ? balances.find((b) => b.person === selectedPerson)
+    : null;
+
   return (
     <div className="space-y-8 pt-4 fade-in">
       <header>
