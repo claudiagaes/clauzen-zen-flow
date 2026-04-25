@@ -220,60 +220,45 @@ export function AddExpenseDialog({ open, onOpenChange, onCreated }: Props) {
 
           <div className="space-y-1.5">
             <Label className="text-xs">Paid by</Label>
-            <Select value={paidBy} onValueChange={setPaidBy}>
-              <SelectTrigger className="rounded-xl border-0 bg-secondary">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="rounded-2xl border-0 shadow-card">
-                {people.map((p) => (
-                  <SelectItem key={p} value={p} className="rounded-xl">
-                    {p === ME ? "You" : p}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <PersonCombobox
+              value={paidBy}
+              onChange={setPaidBy}
+              people={people}
+              me={ME}
+              placeholder="Search who paid…"
+              loading={loadingContacts}
+            />
           </div>
 
           <div className="space-y-2">
             <Label className="text-xs">Shared with</Label>
-            {loadingContacts ? (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" /> Loading contacts…
+            <SharedWithCombobox
+              selected={sharedWith}
+              onToggle={togglePerson}
+              onClear={() => setSharedWith([])}
+              people={people.filter((p) => p !== paidBy)}
+              me={ME}
+              loading={loadingContacts}
+            />
+            {sharedWith.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {sharedWith.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => togglePerson(p)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    {p === ME ? "You" : p}
+                    <X className="h-3 w-3" />
+                  </button>
+                ))}
               </div>
-            ) : contactNames.length === 0 ? (
+            )}
+            {sharedWith.length === 0 && !loadingContacts && (
               <p className="text-[11px] text-muted-foreground">
-                No contacts yet. Add some to your contacts table to split expenses.
+                Leave empty for a personal expense (no splits created).
               </p>
-            ) : (
-              <>
-                <div className="flex flex-wrap gap-2">
-                  {people
-                    .filter((p) => p !== paidBy)
-                    .map((p) => {
-                      const active = sharedWith.includes(p);
-                      return (
-                        <button
-                          key={p}
-                          type="button"
-                          onClick={() => togglePerson(p)}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-colors ${
-                            active
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-secondary text-foreground/70 hover:bg-secondary/70"
-                          }`}
-                        >
-                          {active ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
-                          {p === ME ? "You" : p}
-                        </button>
-                      );
-                    })}
-                </div>
-                {sharedWith.length === 0 && (
-                  <p className="text-[11px] text-muted-foreground">
-                    Leave empty for a personal expense (no splits created).
-                  </p>
-                )}
-              </>
             )}
           </div>
 
