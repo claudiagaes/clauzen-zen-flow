@@ -97,7 +97,7 @@ export default function Analytics() {
     for (const e of filtered) {
       const d = new Date(e.date);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      map.set(key, (map.get(key) ?? 0) + e.total_amount);
+      map.set(key, (map.get(key) ?? 0) + getMyAmount(e));
     }
     return Array.from(map.entries())
       .sort()
@@ -119,7 +119,7 @@ export default function Analytics() {
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
     const m = new Map<string, number>();
-    inMonth.forEach((e) => m.set(e.category, (m.get(e.category) ?? 0) + e.total_amount));
+    inMonth.forEach((e) => m.set(e.category, (m.get(e.category) ?? 0) + getMyAmount(e)));
     return Array.from(m.entries())
       .map(([cat, amount]) => ({
         category: cat,
