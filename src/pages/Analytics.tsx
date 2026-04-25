@@ -66,14 +66,14 @@ export default function Analytics() {
     getExpenses().then(setAll);
   }, []);
 
-  // Step 1: filter by currency + date range (used for charts/insights)
+  // Step 1: filter by currency + date range (used for charts/insights). All math uses my_amount.
   const scoped = useMemo(
     () =>
       all.filter(
         (e) =>
           (e.currency as string) === currency &&
           inDateRange(e.date, dateRange) &&
-          e.total_amount > 0.001,
+          getMyAmount(e) > 0.001,
       ),
     [all, currency, dateRange],
   );
