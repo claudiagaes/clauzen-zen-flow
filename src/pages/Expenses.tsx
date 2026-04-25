@@ -51,6 +51,17 @@ export default function Expenses() {
     }
   };
 
+  const handleEventTagChange = async (expenseId: string, next: string | null) => {
+    setAll((prev) => prev.map((e) => (e.id === expenseId ? { ...e, event_tag: next } : e)));
+    const ok = await updateExpenseEventTag(expenseId, next);
+    if (!ok) {
+      toast.error("Couldn't update event");
+      refresh();
+    } else {
+      toast.success(next ? `Tagged as ${next}` : "Moved to Daily Life");
+    }
+  };
+
   const events = useMemo(
     () => Array.from(new Set(all.map((e) => e.event_tag).filter(Boolean) as string[])),
     [all],
