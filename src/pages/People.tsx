@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getExpenses, getSplits, type Expense, type ExpenseSplit } from "@/lib/data";
+import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/format";
@@ -17,13 +18,15 @@ export default function People() {
   const sendReminder = async (person: string, amount: number) => {
     setSendingTo(person);
     try {
-      // TODO: When Lovable Cloud / Supabase is connected, replace with:
-      // await supabase.from("reminder_requests").insert({
-      //   person_name: person, amount_owed: amount, currency: DEFAULT_CURRENCY,
-      // });
-      await new Promise((r) => setTimeout(r, 500));
+      const { error } = await supabase.from("reminder_requests").insert({
+        person_name: person,
+        amount_owed: amount,
+        currency: DEFAULT_CURRENCY,
+      });
+      if (error) throw error;
       toast.success(`Reminder request sent to ${person} ✅`);
     } catch (err) {
+      console.error("reminder insert failed", err);
       toast.error("Couldn't send reminder. Try again.");
     } finally {
       setSendingTo(null);
