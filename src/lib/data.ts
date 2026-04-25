@@ -281,6 +281,15 @@ export async function updateExpenseCategory(expenseId: string, category: string)
   return !error;
 }
 
+export async function updateExpenseEventTag(expenseId: string, eventTag: string | null): Promise<boolean> {
+  const { error } = await supabase
+    .from("expenses")
+    .update({ event_tag: eventTag })
+    .eq("id", expenseId);
+  logIfError("updateExpenseEventTag", error);
+  return !error;
+}
+
 export interface NewExpenseInput {
   date: string; // ISO
   description: string;
