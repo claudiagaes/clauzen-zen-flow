@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { getExpenses, getSplits, type Expense, type ExpenseSplit } from "@/lib/data";
+import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/format";
