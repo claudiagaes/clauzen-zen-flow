@@ -230,9 +230,16 @@ function ExpenseRow({
         <button
           type="button"
           onClick={onToggle}
-          className="text-sm font-medium tabular-nums w-24 text-right"
+          className="text-right w-28"
         >
-          {formatMoney(expense.total_amount, expense.currency)}
+          <div className="text-sm font-medium tabular-nums">
+            {formatMoney(getMyAmount(expense), expense.currency)}
+          </div>
+          {expense.is_shared && expense.my_amount !== null && Math.abs(expense.my_amount - expense.total_amount) > 0.005 && (
+            <div className="text-[10px] text-muted-foreground tabular-nums mt-0.5">
+              of {formatMoney(expense.total_amount, expense.currency)}
+            </div>
+          )}
         </button>
         <button
           type="button"
