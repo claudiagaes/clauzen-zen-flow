@@ -68,7 +68,6 @@ Rules:
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [{ role: "system", content: systemPrompt }, ...messages],
-        stream: true,
       }),
     });
 
@@ -93,8 +92,10 @@ Rules:
       });
     }
 
-    return new Response(response.body, {
-      headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+    const data = await response.json();
+    const reply = data?.choices?.[0]?.message?.content ?? "I couldn't come up with an answer.";
+    return new Response(JSON.stringify({ reply }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("expense-chat error:", e);
