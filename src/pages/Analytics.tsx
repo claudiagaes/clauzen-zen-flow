@@ -495,6 +495,9 @@ export default function Analytics() {
           )}
         </div>
       </Card>
+
+      {/* AI chat about expenses */}
+      <ExpenseChat expenses={scoped} currency={currency} />
     </div>
   );
 }
