@@ -288,3 +288,124 @@ export function AddExpenseDialog({ open, onOpenChange, onCreated }: Props) {
     </Dialog>
   );
 }
+
+interface PersonComboboxProps {
+  value: string;
+  onChange: (v: string) => void;
+  people: string[];
+  me: string;
+  placeholder?: string;
+  loading?: boolean;
+}
+
+function PersonCombobox({ value, onChange, people, me, placeholder, loading }: PersonComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const label = value === me ? "You" : value;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="w-full flex items-center justify-between rounded-xl bg-secondary px-3 py-2 text-sm text-left"
+        >
+          <span className="truncate">{label || placeholder}</span>
+          <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="p-0 rounded-2xl border-0 shadow-card w-[--radix-popover-trigger-width]" align="start">
+        <Command>
+          <CommandInput placeholder={placeholder ?? "Search…"} />
+          <CommandList>
+            {loading ? (
+              <div className="flex items-center gap-2 px-3 py-4 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" /> Loading…
+              </div>
+            ) : (
+              <>
+                <CommandEmpty>No one found.</CommandEmpty>
+                <CommandGroup>
+                  {people.map((p) => (
+                    <CommandItem
+                      key={p}
+                      value={p === me ? `You ${p}` : p}
+                      onSelect={() => {
+                        onChange(p);
+                        setOpen(false);
+                      }}
+                      className="rounded-lg"
+                    >
+                      <Check className={`mr-2 h-4 w-4 ${value === p ? "opacity-100" : "opacity-0"}`} />
+                      {p === me ? "You" : p}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+interface SharedWithComboboxProps {
+  selected: string[];
+  onToggle: (name: string) => void;
+  onClear: () => void;
+  people: string[];
+  me: string;
+  loading?: boolean;
+}
+
+function SharedWithCombobox({ selected, onToggle, people, me, loading }: SharedWithComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const summary =
+    selected.length === 0
+      ? "Search & add people…"
+      : `${selected.length} ${selected.length === 1 ? "person" : "people"} selected`;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="w-full flex items-center justify-between rounded-xl bg-secondary px-3 py-2 text-sm text-left"
+        >
+          <span className="truncate text-muted-foreground">{summary}</span>
+          <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="p-0 rounded-2xl border-0 shadow-card w-[--radix-popover-trigger-width]" align="start">
+        <Command>
+          <CommandInput placeholder="Search contacts…" />
+          <CommandList>
+            {loading ? (
+              <div className="flex items-center gap-2 px-3 py-4 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" /> Loading…
+              </div>
+            ) : (
+              <>
+                <CommandEmpty>No contacts found.</CommandEmpty>
+                <CommandGroup>
+                  {people.map((p) => {
+                    const active = selected.includes(p);
+                    return (
+                      <CommandItem
+                        key={p}
+                        value={p === me ? `You ${p}` : p}
+                        onSelect={() => onToggle(p)}
+                        className="rounded-lg"
+                      >
+                        <Check className={`mr-2 h-4 w-4 ${active ? "opacity-100" : "opacity-0"}`} />
+                        {p === me ? "You" : p}
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              </>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
