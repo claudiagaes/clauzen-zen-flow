@@ -272,4 +272,67 @@ export async function getItemsForExpense(expenseId: string): Promise<ExpenseItem
   return (data ?? []) as ExpenseItem[];
 }
 
+export async function updateExpenseCategory(expenseId: string, category: string): Promise<boolean> {
+  const { error } = await supabase
+    .from("expenses")
+    .update({ category })
+    .eq("id", expenseId);
+  logIfError("updateExpenseCategory", error);
+  return !error;
+}
+
+export interface NewExpenseInput {
+  date: string; // ISO
+  description: string;
+  total_amount: number;
+  currency: Currency;
+  category: string;
+  event_tag: string | null;
+  paid_by: string;
+  shared_with: string[]; // names of other people the expense is shared with (excluding payer)
+  notes?: string | null;
+}
+
+export async function createExpense(input: NewExpenseInput): Promise<Expense | null> {
+  const isShared = input.shared_with.length > 0;
+  const payload = {
+    date: input.date,
+    description: input.description,
+    total_amount: input.total_amount,
+    currency: input.currency,
+    category: input.category,
+    paid_by: input.paid_by,
+    is_shared: isShared,
+    event_tag: input.event_tag,
+    notes: input.notes ?? null,
+    splitwise_expense_id: null,
+    splitwise_group_id: null,
+    receipt_image_url: null,
+  };
+  const { data, error } = await supabase
+    .from("expenses")
+    .insert(payload)
+    .select("*")
+    .single();
+  if (error || !data) {
+    logIfError("createExpense", error);
+    return null;
+  }
+  const expense = data as Expense;
+
+  if (isShared) {
+    const everyone = [input.paid_by, ...input.shared_with];
+    const per = +(input.total_amount / everyone.length).toFixed(2);
+    const splitRows = input.shared_with.map((p) => ({
+      expense_id: expense.id,
+      person_name: p,
+      amount_owed: per,
+      is_paid: false,
+    }));
+    const { error: splitErr } = await supabase.from("expense_splits").insert(splitRows);
+    logIfError("createExpense.splits", splitErr);
+  }
+  return expense;
+}
+
 export const PEOPLE_LIST = PEOPLE;
