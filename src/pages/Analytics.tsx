@@ -112,7 +112,7 @@ export default function Analytics() {
           count,
         };
       });
-  }, [filtered]);
+  }, [filtered, convert]);
 
   // Categories in current month within scope (for the bar chart)
   const thisMonthCats = useMemo(() => {
@@ -132,7 +132,7 @@ export default function Analytics() {
         meta: getCategoryMeta(cat),
       }))
       .sort((a, b) => b.amount - a.amount);
-  }, [scoped]);
+  }, [scoped, convert]);
 
   // Stats
   const topCat = thisMonthCats[0];
