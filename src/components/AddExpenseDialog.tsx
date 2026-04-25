@@ -45,6 +45,17 @@ export function AddExpenseDialog({ open, onOpenChange, onCreated }: Props) {
   const [paidBy, setPaidBy] = useState<string>(ME);
   const [sharedWith, setSharedWith] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [loadingContacts, setLoadingContacts] = useState(false);
+
+  // Load contacts whenever the dialog opens (so newly added contacts show up).
+  useEffect(() => {
+    if (!open) return;
+    setLoadingContacts(true);
+    getContacts()
+      .then(setContacts)
+      .finally(() => setLoadingContacts(false));
+  }, [open]);
 
   const reset = () => {
     setDate(todayISO);
@@ -102,8 +113,9 @@ export function AddExpenseDialog({ open, onOpenChange, onCreated }: Props) {
     onCreated?.();
   };
 
-  // Combine ME + seeded people for selection.
-  const people = Array.from(new Set([ME, ...PEOPLE_LIST]));
+  // "You" + dynamic contacts from Supabase. Dedup by name in case ME is also a contact.
+  const contactNames = contacts.map((c) => c.name).filter((n) => n && n !== ME);
+  const people = [ME, ...contactNames];
 
   return (
     <Dialog
