@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getCategoryMeta, getExpenses, type Expense } from "@/lib/data";
+import { getCategoryMeta, getExpenses, getMyAmount, type Expense } from "@/lib/data";
 import { getEventFlag } from "@/lib/eventIcon";
 import { Card } from "@/components/ui/card";
 import { formatDate, formatMoney } from "@/lib/format";
@@ -31,9 +31,9 @@ export default function Trips() {
     }
     return Array.from(groups.entries()).map(([name, list]) => {
       const sorted = [...list].sort((a, b) => +new Date(a.date) - +new Date(b.date));
-      const total = list.reduce((a, x) => a + x.total_amount, 0);
+      const total = list.reduce((a, x) => a + getMyAmount(x), 0);
       const catTotals = new Map<string, number>();
-      list.forEach((x) => catTotals.set(x.category, (catTotals.get(x.category) ?? 0) + x.total_amount));
+      list.forEach((x) => catTotals.set(x.category, (catTotals.get(x.category) ?? 0) + getMyAmount(x)));
       const topCategory = Array.from(catTotals.entries()).sort((a, b) => b[1] - a[1])[0][0];
       return {
         name,
@@ -108,7 +108,7 @@ export default function Trips() {
 function TripDetail({ event, onBack }: { event: EventGroup; onBack: () => void }) {
   const byCat = useMemo(() => {
     const m = new Map<string, number>();
-    event.expenses.forEach((e) => m.set(e.category, (m.get(e.category) ?? 0) + e.total_amount));
+    event.expenses.forEach((e) => m.set(e.category, (m.get(e.category) ?? 0) + getMyAmount(e)));
     return Array.from(m.entries()).sort((a, b) => b[1] - a[1]);
   }, [event]);
 
@@ -172,7 +172,7 @@ function TripDetail({ event, onBack }: { event: EventGroup; onBack: () => void }
                   <div className="text-sm font-medium truncate">{e.description}</div>
                   <div className="text-xs text-muted-foreground">{formatDate(e.date)} · paid by {e.paid_by}</div>
                 </div>
-                <div className="text-sm font-medium tabular-nums">{formatMoney(e.total_amount, e.currency)}</div>
+                <div className="text-sm font-medium tabular-nums">{formatMoney(getMyAmount(e), e.currency)}</div>
               </li>
             );
           })}

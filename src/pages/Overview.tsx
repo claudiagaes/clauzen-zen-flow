@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getExpenses, type Expense, getCategoryMeta } from "@/lib/data";
+import { getExpenses, getMyAmount, type Expense, getCategoryMeta } from "@/lib/data";
 import { DateFilter, type DatePresetKey, type DateRange, presetToRange } from "@/components/DateFilter";
 import { CategoryChip } from "@/components/CategoryChip";
 import { formatMoney, formatDate, toDisplayAmount } from "@/lib/format";
@@ -27,16 +27,16 @@ export default function Overview() {
     });
   }, [all, dateRange]);
 
-  // All sums in display currency (USD).
+  // All sums in display currency (USD), based on the user's personal share.
   const total = filteredExpenses.reduce(
-    (acc, x) => acc + toDisplayAmount(x.total_amount, x.currency),
+    (acc, x) => acc + toDisplayAmount(getMyAmount(x), x.currency),
     0,
   );
 
   const byCat = useMemo(() => {
     const map = new Map<string, number>();
     filteredExpenses.forEach((x) =>
-      map.set(x.category, (map.get(x.category) ?? 0) + toDisplayAmount(x.total_amount, x.currency)),
+      map.set(x.category, (map.get(x.category) ?? 0) + toDisplayAmount(getMyAmount(x), x.currency)),
     );
     return Array.from(map.entries())
       .map(([category, amount]) => ({ category, amount, meta: getCategoryMeta(category) }))
@@ -162,7 +162,7 @@ export default function Overview() {
                     {formatDate(e.date)} {e.event_tag && <>· {e.event_tag}</>}
                   </div>
                 </div>
-                <div className="text-sm font-medium tabular-nums">{formatMoney(e.total_amount, e.currency)}</div>
+                <div className="text-sm font-medium tabular-nums">{formatMoney(getMyAmount(e), e.currency)}</div>
               </li>
             ))}
           </ul>

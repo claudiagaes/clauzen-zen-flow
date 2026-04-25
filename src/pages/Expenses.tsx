@@ -4,6 +4,7 @@ import {
   getCategoryMeta,
   getExpenses,
   getItemsForExpense,
+  getMyAmount,
   getSplitsForExpense,
   updateExpenseCategory,
   updateExpenseEventTag,
@@ -70,8 +71,8 @@ export default function Expenses() {
 
   const filtered = useMemo(() => {
     return all.filter((x) => {
-      // Hide zero-amount placeholder rows (e.g. imported "Splitwise Balances" entries with $0).
-      if (Math.abs(x.total_amount) < 0.005) return false;
+      // Hide zero-share placeholder rows.
+      if (Math.abs(getMyAmount(x)) < 0.005) return false;
       if (dateRange) {
         const t = +new Date(x.date);
         if (t < +dateRange.from || t > +dateRange.to) return false;
@@ -117,7 +118,7 @@ export default function Expenses() {
           />
 
           <span className="ml-auto text-xs text-muted-foreground">
-            {filtered.length} results · {formatMoney(filtered.reduce((a, x) => a + x.total_amount, 0))}
+            {filtered.length} results · {formatMoney(filtered.reduce((a, x) => a + getMyAmount(x), 0))} your share
           </span>
         </div>
       </Card>
@@ -229,9 +230,16 @@ function ExpenseRow({
         <button
           type="button"
           onClick={onToggle}
-          className="text-sm font-medium tabular-nums w-24 text-right"
+          className="text-right w-28"
         >
-          {formatMoney(expense.total_amount, expense.currency)}
+          <div className="text-sm font-medium tabular-nums">
+            {formatMoney(getMyAmount(expense), expense.currency)}
+          </div>
+          {expense.is_shared && expense.my_amount !== null && Math.abs(expense.my_amount - expense.total_amount) > 0.005 && (
+            <div className="text-[10px] text-muted-foreground tabular-nums mt-0.5">
+              of {formatMoney(expense.total_amount, expense.currency)}
+            </div>
+          )}
         </button>
         <button
           type="button"
@@ -243,7 +251,21 @@ function ExpenseRow({
       </div>
 
       {isOpen && (
-        <div className="px-5 pb-5 pt-1 fade-in">
+        <div className="px-5 pb-5 pt-1 fade-in space-y-4">
+          <div className="rounded-2xl bg-card border border-border/60 px-5 py-4 flex items-baseline justify-between gap-4">
+            <div>
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Your share</div>
+              <div className="font-display text-2xl tabular-nums mt-1">
+                {formatMoney(getMyAmount(expense), expense.currency)}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Total bill</div>
+              <div className="text-sm text-muted-foreground tabular-nums mt-1">
+                {formatMoney(expense.total_amount, expense.currency)}
+              </div>
+            </div>
+          </div>
           <div className="rounded-2xl bg-secondary/50 p-5 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-3">Items</div>

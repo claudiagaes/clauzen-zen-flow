@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { getCategoryMeta, getExpenses, CATEGORIES, type Expense } from "@/lib/data";
+import { getCategoryMeta, getExpenses, getMyAmount, CATEGORIES, type Expense } from "@/lib/data";
 import { Card } from "@/components/ui/card";
 import {
   Area,
@@ -66,14 +66,14 @@ export default function Analytics() {
     getExpenses().then(setAll);
   }, []);
 
-  // Step 1: filter by currency + date range (used for charts/insights)
+  // Step 1: filter by currency + date range (used for charts/insights). All math uses my_amount.
   const scoped = useMemo(
     () =>
       all.filter(
         (e) =>
           (e.currency as string) === currency &&
           inDateRange(e.date, dateRange) &&
-          e.total_amount > 0.001,
+          getMyAmount(e) > 0.001,
       ),
     [all, currency, dateRange],
   );
@@ -97,7 +97,7 @@ export default function Analytics() {
     for (const e of filtered) {
       const d = new Date(e.date);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      map.set(key, (map.get(key) ?? 0) + e.total_amount);
+      map.set(key, (map.get(key) ?? 0) + getMyAmount(e));
     }
     return Array.from(map.entries())
       .sort()
@@ -119,7 +119,7 @@ export default function Analytics() {
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
     const m = new Map<string, number>();
-    inMonth.forEach((e) => m.set(e.category, (m.get(e.category) ?? 0) + e.total_amount));
+    inMonth.forEach((e) => m.set(e.category, (m.get(e.category) ?? 0) + getMyAmount(e)));
     return Array.from(m.entries())
       .map(([cat, amount]) => ({
         category: cat,
@@ -147,12 +147,12 @@ export default function Analytics() {
       const d = new Date(e.date);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
-    const monthTotal = monthExpenses.reduce((a, e) => a + e.total_amount, 0);
+    const monthTotal = monthExpenses.reduce((a, e) => a + getMyAmount(e), 0);
 
     // Top category this month (within filter)
     const catMap = new Map<string, number>();
     monthExpenses.forEach((e) =>
-      catMap.set(e.category, (catMap.get(e.category) ?? 0) + e.total_amount),
+      catMap.set(e.category, (catMap.get(e.category) ?? 0) + getMyAmount(e)),
     );
     const topThisMonth = Array.from(catMap.entries()).sort((a, b) => b[1] - a[1])[0];
 
@@ -163,21 +163,20 @@ export default function Analytics() {
         const d = new Date(e.date);
         return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
       })
-      .reduce((a, e) => a + e.total_amount, 0);
+      .reduce((a, e) => a + getMyAmount(e), 0);
 
     const pctDelta =
       lastMonthTotal > 0 ? ((monthTotal - lastMonthTotal) / lastMonthTotal) * 100 : null;
 
-    // Biggest single expense in scope
-    const biggest = [...filtered].sort((a, b) => b.total_amount - a.total_amount)[0];
+    // Biggest single expense in scope (by user's share)
+    const biggest = [...filtered].sort((a, b) => getMyAmount(b) - getMyAmount(a))[0];
 
-    // If a trip/event tag is being indirectly highlighted via category? Skip — show trip rollups
     // Group by event_tag in scope to see if there's a notable trip
     const tripMap = new Map<string, { total: number; count: number }>();
     filtered.forEach((e) => {
       if (!e.event_tag) return;
       const cur = tripMap.get(e.event_tag) ?? { total: 0, count: 0 };
-      cur.total += e.total_amount;
+      cur.total += getMyAmount(e);
       cur.count += 1;
       tripMap.set(e.event_tag, cur);
     });
@@ -477,9 +476,9 @@ export default function Analytics() {
               Your biggest single expense was{" "}
               <span className="font-medium">{insights.biggest.description}</span> at{" "}
               <span className="tabular-nums">
-                {formatInCurrency(insights.biggest.total_amount, currency)}
+                {formatInCurrency(getMyAmount(insights.biggest), currency)}
               </span>
-              .
+              {" "}(your share).
             </p>
           )}
 

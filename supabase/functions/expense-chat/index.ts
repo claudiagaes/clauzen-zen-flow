@@ -11,6 +11,7 @@ const corsHeaders = {
 interface ExpenseLite {
   date: string;
   description: string;
+  my_amount: number;
   total_amount: number;
   currency: string;
   category: string;
@@ -32,30 +33,36 @@ Deno.serve(async (req) => {
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     // Compress: send a compact CSV-ish ledger to keep context small.
+    // my_amount = the user's personal share (what we use for all totals).
+    // total_amount = the full bill (shown only when shared, for context).
     const ledger = expenses
-      .map(
-        (e) =>
-          `${e.date.slice(0, 10)} | ${e.currency} ${e.total_amount.toFixed(2)} | ${e.category} | ${e.event_tag ?? "Daily Life"} | paid_by=${e.paid_by} | ${e.description}`,
-      )
+      .map((e) => {
+        const shared = Math.abs(e.my_amount - e.total_amount) > 0.005;
+        const amountField = shared
+          ? `${e.currency} ${e.my_amount.toFixed(2)} (of ${e.total_amount.toFixed(2)} total)`
+          : `${e.currency} ${e.my_amount.toFixed(2)}`;
+        return `${e.date.slice(0, 10)} | ${amountField} | ${e.category} | ${e.event_tag ?? "Daily Life"} | paid_by=${e.paid_by} | ${e.description}`;
+      })
       .join("\n");
 
     const totalRows = expenses.length;
-    const totalAmount = expenses.reduce((a, e) => a + e.total_amount, 0);
+    const totalAmount = expenses.reduce((a, e) => a + e.my_amount, 0);
 
     const systemPrompt = `You are a friendly personal-finance assistant analyzing the user's expense ledger.
 
-CURRENT FILTER: currency = ${currency}. ${totalRows} expenses, total ${currency} ${totalAmount.toFixed(2)}.
+CURRENT FILTER: currency = ${currency}. ${totalRows} expenses, the user's share totals ${currency} ${totalAmount.toFixed(2)}.
 
-Each line of the ledger below is one expense:
-DATE | CURRENCY AMOUNT | CATEGORY | EVENT_TAG | paid_by=PERSON | DESCRIPTION
+Each line of the ledger below is one expense. The amount shown is the USER'S PERSONAL SHARE; for shared expenses, the full bill is in parentheses for context:
+DATE | CURRENCY MY_SHARE [(of FULL_TOTAL)] | CATEGORY | EVENT_TAG | paid_by=PERSON | DESCRIPTION
 
 LEDGER:
 ${ledger || "(no expenses match the current filter)"}
 
 Rules:
 - Answer the user's question using ONLY the ledger above. Don't invent numbers.
+- All totals, sums, and averages must use the user's personal share — NOT the full bill.
 - Always show amounts in ${currency} with the symbol or code.
-- When the user asks about a month/period, list the relevant expenses (date + description + amount) and the total.
+- When the user asks about a month/period, list the relevant expenses (date + description + their share) and the total share.
 - Keep answers short and use markdown (lists, **bold**) for clarity. Use emojis sparingly.
 - If the ledger has no matching data, say so plainly.`;
 

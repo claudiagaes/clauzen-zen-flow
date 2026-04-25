@@ -8,6 +8,8 @@ export interface Expense {
   date: string; // ISO
   description: string;
   total_amount: number;
+  /** The user's personal share of the expense. May be null for legacy rows; fall back to total_amount. */
+  my_amount: number | null;
   currency: Currency;
   category: string;
   paid_by: string;
@@ -84,6 +86,11 @@ export function getCategoryMeta(category: string) {
     CATEGORIES.find((c) => c.key === resolved) ??
     CATEGORIES[CATEGORIES.length - 1]
   );
+}
+
+/** Returns the user's personal share for an expense, falling back to total_amount when null. */
+export function getMyAmount(e: Pick<Expense, "my_amount" | "total_amount">): number {
+  return e.my_amount ?? e.total_amount;
 }
 
 // ---------- Mock dataset (shaped like Supabase rows) ----------
@@ -188,6 +195,7 @@ for (const s of SEEDS) {
     date: daysAgo(s.d),
     description: s.desc,
     total_amount: s.amount,
+    my_amount: isShared && s.shared ? +(s.amount / (1 + s.shared.length)).toFixed(2) : s.amount,
     currency: s.currency ?? "EUR",
     category: s.cat,
     paid_by: s.paid_by ?? "Claudia",
