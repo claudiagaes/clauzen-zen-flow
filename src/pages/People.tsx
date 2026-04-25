@@ -107,7 +107,7 @@ export default function People() {
           : e.paid_by;
       if (other === ME) continue;
       const b = get(other);
-      const amount = toDisplayAmount(s.amount_owed, e.currency);
+      const amount = convert(s.amount_owed, e.currency);
 
       // Determine direction.
       const iOweThem = hasOwePrefix ? true : e.paid_by !== ME;
