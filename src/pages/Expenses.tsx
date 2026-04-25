@@ -184,6 +184,8 @@ function ExpenseRow({
   first: boolean;
 }) {
   const meta = getCategoryMeta(expense.category);
+  const { format, formatNative, isConverted } = useCurrency();
+  const converted = isConverted(expense.currency);
   const [splits, setSplits] = useState<ExpenseSplit[]>([]);
   const [items, setItems] = useState<ExpenseItem[]>([]);
 
