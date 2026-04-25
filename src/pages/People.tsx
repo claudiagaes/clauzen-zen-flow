@@ -178,7 +178,7 @@ export default function People() {
         date: e.date,
         description: e.description,
         category: e.category,
-        amount: toDisplayAmount(s.amount_owed, e.currency),
+        amount: convert(s.amount_owed, e.currency),
         direction: iOweThem ? "i-owe" : "they-owe",
         is_paid: s.is_paid,
       });
@@ -220,7 +220,7 @@ export default function People() {
               </span>
             </div>
             <div className="font-display text-4xl mt-2 tabular-nums text-foreground">
-              {formatMoney(totalOwedToMe)}
+              {format(totalOwedToMe)}
             </div>
           </Card>
         </button>
@@ -244,7 +244,7 @@ export default function People() {
               </span>
             </div>
             <div className="font-display text-4xl mt-2 tabular-nums text-foreground">
-              {formatMoney(totalIOwe)}
+              {format(totalIOwe)}
             </div>
           </Card>
         </button>
@@ -297,12 +297,12 @@ export default function People() {
                       settled ? "text-muted-foreground" : owedToMe ? "text-owed" : "text-owe"
                     }`}
                   >
-                    {settled ? formatMoney(0) : formatMoney(Math.abs(b.net))}
+                    {settled ? format(0) : format(Math.abs(b.net))}
                   </div>
                 </div>
                 <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Pending {formatMoney(b.pending)}</span>
-                  <span>Settled {formatMoney(b.settled)}</span>
+                  <span>Pending {format(b.pending)}</span>
+                  <span>Settled {format(b.settled)}</span>
                 </div>
               </button>
               {owedToMe && !settled && (
@@ -359,8 +359,8 @@ export default function People() {
                     ? Math.abs(selectedBalance.net) < 0.005
                       ? "All settled ✨"
                       : selectedBalance.net > 0
-                        ? `Owes you ${formatMoney(selectedBalance.net)}`
-                        : `You owe ${formatMoney(Math.abs(selectedBalance.net))}`
+                        ? `Owes you ${format(selectedBalance.net)}`
+                        : `You owe ${format(Math.abs(selectedBalance.net))}`
                     : ""}
                 </DialogDescription>
               </div>
@@ -413,7 +413,7 @@ export default function People() {
                               }`}
                             >
                               {owedToMe ? "+" : "−"}
-                              {formatMoney(r.amount)}
+                              {format(r.amount)}
                             </div>
                             <ChevronDown
                               className={cn(
@@ -444,7 +444,7 @@ export default function People() {
                                         )}
                                       </div>
                                       <span className="tabular-nums text-muted-foreground">
-                                        {formatMoney(toDisplayAmount(it.amount, expenses.find((e) => e.id === r.expense_id)?.currency ?? "USD"))}
+                                        {format(convert(it.amount, expenses.find((e) => e.id === r.expense_id)?.currency ?? "USD"))}
                                       </span>
                                     </li>
                                   ))}
@@ -488,7 +488,7 @@ export default function People() {
                             </div>
                           </div>
                           <div className="font-display text-sm tabular-nums text-muted-foreground">
-                            {formatMoney(r.amount)}
+                            {format(r.amount)}
                           </div>
                         </li>
                       );
