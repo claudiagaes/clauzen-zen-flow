@@ -1,7 +1,7 @@
 // Types mirror the Supabase schema exactly.
 // Swap getExpenses() etc. with real Supabase queries when you wire credentials.
 
-export type Currency = "EUR" | "USD" | "GBP";
+export type Currency = "EUR" | "USD" | "GBP" | "MXN";
 
 export interface Expense {
   id: string;
