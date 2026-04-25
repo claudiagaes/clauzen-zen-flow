@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { format } from "date-fns";
+import { CalendarIcon } from "lucide-react";
 import { getCategoryMeta, getExpenses, getMyAmount, CATEGORIES, type Expense } from "@/lib/data";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Area,
   AreaChart,
@@ -15,31 +20,39 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 
+// Fixed conversion rates → USD (display only)
+const FX_TO_USD: Record<string, number> = {
+  USD: 1,
+  EUR: 1.08,
+  MXN: 0.05,
+};
 
-type CurrencyCode = "USD" | "EUR" | "MXN";
-const CURRENCIES: { code: CurrencyCode; symbol: string; label: string }[] = [
-  { code: "USD", symbol: "$", label: "USD" },
-  { code: "EUR", symbol: "€", label: "EUR" },
-  { code: "MXN", symbol: "MX$", label: "MXN" },
-];
+function toUSD(amount: number, currency: string): number {
+  const rate = FX_TO_USD[currency] ?? 1;
+  return amount * rate;
+}
 
-type DateRangeKey = "this-month" | "last-3" | "this-year" | "all";
+function formatUSD(amount: number) {
+  const rounded = amount % 1 === 0 ? amount.toFixed(0) : amount.toFixed(2);
+  return `$${Number(rounded).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+}
+
+function formatOriginal(amount: number, currency: string) {
+  const sym = currency === "EUR" ? "€" : currency === "MXN" ? "MX$" : "$";
+  const rounded = amount % 1 === 0 ? amount.toFixed(0) : amount.toFixed(2);
+  return `${sym}${Number(rounded).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+}
+
+type DateRangeKey = "this-month" | "last-3" | "this-year" | "all" | "custom";
 const DATE_RANGES: { key: DateRangeKey; label: string }[] = [
   { key: "this-month", label: "This month" },
   { key: "last-3", label: "Last 3 months" },
   { key: "this-year", label: "This year" },
   { key: "all", label: "All time" },
+  { key: "custom", label: "Custom range" },
 ];
 
-function formatInCurrency(amount: number, code: CurrencyCode) {
-  const sym = CURRENCIES.find((c) => c.code === code)?.symbol ?? "";
-  const rounded = amount % 1 === 0 ? amount.toFixed(0) : amount.toFixed(2);
-  return `${sym}${Number(rounded).toLocaleString("en-US", {
-    maximumFractionDigits: 2,
-  })}`;
-}
-
-function inDateRange(iso: string, range: DateRangeKey) {
+function inDateRange(iso: string, range: DateRangeKey, from?: Date, to?: Date) {
   if (range === "all") return true;
   const d = new Date(iso);
   const now = new Date();
@@ -53,29 +66,35 @@ function inDateRange(iso: string, range: DateRangeKey) {
     const cutoff = new Date(now.getFullYear(), now.getMonth() - 2, 1);
     return d >= cutoff;
   }
+  if (range === "custom") {
+    if (from && d < new Date(from.getFullYear(), from.getMonth(), from.getDate())) return false;
+    if (to && d > new Date(to.getFullYear(), to.getMonth(), to.getDate(), 23, 59, 59)) return false;
+    return true;
+  }
   return true;
 }
 
 export default function Analytics() {
   const [all, setAll] = useState<Expense[]>([]);
-  const [currency, setCurrency] = useState<CurrencyCode>("USD");
   const [category, setCategory] = useState<string>("all");
   const [dateRange, setDateRange] = useState<DateRangeKey>("this-year");
+  const [customFrom, setCustomFrom] = useState<Date | undefined>();
+  const [customTo, setCustomTo] = useState<Date | undefined>();
 
   useEffect(() => {
     getExpenses().then(setAll);
   }, []);
 
-  // Step 1: filter by currency + date range (used for charts/insights). All math uses my_amount.
+  // All amounts converted to USD. Track original currency for tooltip on biggest expense.
+  // Step 1: filter by date range. All math in USD.
   const scoped = useMemo(
     () =>
       all.filter(
         (e) =>
-          (e.currency as string) === currency &&
-          inDateRange(e.date, dateRange) &&
+          inDateRange(e.date, dateRange, customFrom, customTo) &&
           getMyAmount(e) > 0.001,
       ),
-    [all, currency, dateRange],
+    [all, dateRange, customFrom, customTo],
   );
 
   // Categories present in the scope (so the filter row is meaningful)
@@ -91,27 +110,31 @@ export default function Analytics() {
     [scoped, category],
   );
 
-  // Monthly totals (only months with data)
+  // Monthly totals in USD with count of expenses
   const byMonth = useMemo(() => {
-    const map = new Map<string, number>();
+    const map = new Map<string, { total: number; count: number }>();
     for (const e of filtered) {
       const d = new Date(e.date);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-      map.set(key, (map.get(key) ?? 0) + getMyAmount(e));
+      const cur = map.get(key) ?? { total: 0, count: 0 };
+      cur.total += toUSD(getMyAmount(e), e.currency);
+      cur.count += 1;
+      map.set(key, cur);
     }
     return Array.from(map.entries())
       .sort()
-      .map(([key, total]) => {
+      .map(([key, { total, count }]) => {
         const [y, m] = key.split("-").map(Number);
         return {
           key,
-          label: new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "short" }),
+          label: new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "short", year: "numeric" }),
           total: +total.toFixed(2),
+          count,
         };
       });
   }, [filtered]);
 
-  // Categories in current month within scope (for the bar chart — always all cats)
+  // Categories in current month within scope (for the bar chart)
   const thisMonthCats = useMemo(() => {
     const now = new Date();
     const inMonth = scoped.filter((e) => {
@@ -119,7 +142,9 @@ export default function Analytics() {
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
     const m = new Map<string, number>();
-    inMonth.forEach((e) => m.set(e.category, (m.get(e.category) ?? 0) + getMyAmount(e)));
+    inMonth.forEach((e) =>
+      m.set(e.category, (m.get(e.category) ?? 0) + toUSD(getMyAmount(e), e.currency)),
+    );
     return Array.from(m.entries())
       .map(([cat, amount]) => ({
         category: cat,
@@ -147,36 +172,34 @@ export default function Analytics() {
       const d = new Date(e.date);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
-    const monthTotal = monthExpenses.reduce((a, e) => a + getMyAmount(e), 0);
+    const monthTotal = monthExpenses.reduce((a, e) => a + toUSD(getMyAmount(e), e.currency), 0);
 
-    // Top category this month (within filter)
     const catMap = new Map<string, number>();
     monthExpenses.forEach((e) =>
-      catMap.set(e.category, (catMap.get(e.category) ?? 0) + getMyAmount(e)),
+      catMap.set(e.category, (catMap.get(e.category) ?? 0) + toUSD(getMyAmount(e), e.currency)),
     );
     const topThisMonth = Array.from(catMap.entries()).sort((a, b) => b[1] - a[1])[0];
 
-    // Compare to last month
     const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastMonthTotal = filtered
       .filter((e) => {
         const d = new Date(e.date);
         return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
       })
-      .reduce((a, e) => a + getMyAmount(e), 0);
+      .reduce((a, e) => a + toUSD(getMyAmount(e), e.currency), 0);
 
     const pctDelta =
       lastMonthTotal > 0 ? ((monthTotal - lastMonthTotal) / lastMonthTotal) * 100 : null;
 
-    // Biggest single expense in scope (by user's share)
-    const biggest = [...filtered].sort((a, b) => getMyAmount(b) - getMyAmount(a))[0];
+    const biggest = [...filtered].sort(
+      (a, b) => toUSD(getMyAmount(b), b.currency) - toUSD(getMyAmount(a), a.currency),
+    )[0];
 
-    // Group by event_tag in scope to see if there's a notable trip
     const tripMap = new Map<string, { total: number; count: number }>();
     filtered.forEach((e) => {
       if (!e.event_tag) return;
       const cur = tripMap.get(e.event_tag) ?? { total: 0, count: 0 };
-      cur.total += getMyAmount(e);
+      cur.total += toUSD(getMyAmount(e), e.currency);
       cur.count += 1;
       tripMap.set(e.event_tag, cur);
     });
@@ -190,44 +213,96 @@ export default function Analytics() {
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-3xl md:text-4xl">Analytics</h1>
-          <p className="text-muted-foreground mt-1">Patterns, gently revealed.</p>
+          <p className="text-muted-foreground mt-1">
+            Patterns, gently revealed. All amounts shown in USD.
+          </p>
         </div>
-
-        {/* Currency selector */}
-        <div className="inline-flex items-center gap-1 bg-secondary rounded-2xl p-1">
-          {CURRENCIES.map((c) => (
-            <button
-              key={c.code}
-              onClick={() => setCurrency(c.code)}
-              className={cn(
-                "px-3 py-1.5 text-xs rounded-xl transition-colors font-medium",
-                currency === c.code
-                  ? "bg-card text-foreground shadow-soft"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {c.symbol} {c.label}
-            </button>
-          ))}
+        <div className="text-xs text-muted-foreground bg-secondary rounded-2xl px-3 py-2">
+          Rates: 1 EUR = $1.08 · 1 MXN = $0.05
         </div>
       </header>
 
       {/* Date range filter */}
-      <div className="inline-flex flex-wrap items-center gap-1 bg-secondary rounded-2xl p-1">
-        {DATE_RANGES.map((r) => (
-          <button
-            key={r.key}
-            onClick={() => setDateRange(r.key)}
-            className={cn(
-              "px-3 py-1.5 text-xs rounded-xl transition-colors",
-              dateRange === r.key
-                ? "bg-card text-foreground shadow-soft"
-                : "text-muted-foreground hover:text-foreground",
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="inline-flex flex-wrap items-center gap-1 bg-secondary rounded-2xl p-1">
+          {DATE_RANGES.map((r) => (
+            <button
+              key={r.key}
+              onClick={() => setDateRange(r.key)}
+              className={cn(
+                "px-3 py-1.5 text-xs rounded-xl transition-colors",
+                dateRange === r.key
+                  ? "bg-card text-foreground shadow-soft"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
+
+        {dateRange === "custom" && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "rounded-2xl text-xs h-9",
+                    !customFrom && "text-muted-foreground",
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                  {customFrom ? format(customFrom, "PP") : "From"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={customFrom}
+                  onSelect={setCustomFrom}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+            <span className="text-xs text-muted-foreground">→</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "rounded-2xl text-xs h-9",
+                    !customTo && "text-muted-foreground",
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-3.5 w-3.5" />
+                  {customTo ? format(customTo, "PP") : "To"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={customTo}
+                  onSelect={setCustomTo}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+            {(customFrom || customTo) && (
+              <button
+                onClick={() => {
+                  setCustomFrom(undefined);
+                  setCustomTo(undefined);
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground underline"
+              >
+                clear
+              </button>
             )}
-          >
-            {r.label}
-          </button>
-        ))}
+          </div>
+        )}
       </div>
 
       {/* Insights cards */}
@@ -241,7 +316,7 @@ export default function Analytics() {
               {topCat.meta.emoji} {topCat.meta.key}
             </div>
             <div className="text-sm text-muted-foreground mt-1 tabular-nums">
-              {formatInCurrency(topCat.amount, currency)}
+              {formatUSD(topCat.amount)}
             </div>
           </Card>
         ) : (
@@ -256,9 +331,7 @@ export default function Analytics() {
           <div className="text-xs text-foreground/70 uppercase tracking-widest font-medium">
             Monthly average
           </div>
-          <div className="font-display text-3xl mt-2 tabular-nums">
-            {formatInCurrency(avgMonthly, currency)}
-          </div>
+          <div className="font-display text-3xl mt-2 tabular-nums">{formatUSD(avgMonthly)}</div>
           <div className="text-xs text-muted-foreground mt-1">
             across {byMonth.length} {byMonth.length === 1 ? "month" : "months"} with data
           </div>
@@ -322,7 +395,7 @@ export default function Analytics() {
           Monthly trend{category !== "all" && <span className="text-muted-foreground"> · {category}</span>}
         </h2>
         <p className="text-xs text-muted-foreground mb-4">
-          How your {currency} spending breathes month to month.
+          How your spending breathes month to month (in USD).
         </p>
         <div className="h-72">
           {byMonth.length === 0 ? (
@@ -345,13 +418,15 @@ export default function Analytics() {
                   tickLine={false}
                   axisLine={false}
                   fontSize={11}
+                  interval="preserveStartEnd"
+                  minTickGap={20}
                 />
                 <YAxis
                   stroke="hsl(var(--muted-foreground))"
                   tickLine={false}
                   axisLine={false}
                   fontSize={11}
-                  tickFormatter={(v) => formatInCurrency(v, currency)}
+                  tickFormatter={(v) => formatUSD(v)}
                 />
                 <Tooltip
                   contentStyle={{
@@ -362,7 +437,26 @@ export default function Analytics() {
                     boxShadow: "var(--shadow-card)",
                     fontSize: 12,
                   }}
-                  formatter={(v: number) => formatInCurrency(v, currency)}
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const p = payload[0].payload as {
+                      label: string;
+                      total: number;
+                      count: number;
+                    };
+                    return (
+                      <div
+                        className="rounded-2xl bg-popover text-popover-foreground shadow-card px-4 py-2.5 text-xs"
+                        style={{ border: "none" }}
+                      >
+                        <div className="font-medium">{p.label}</div>
+                        <div className="text-muted-foreground mt-0.5">
+                          <span className="tabular-nums text-foreground">{formatUSD(p.total)}</span>
+                          {" "}across {p.count} {p.count === 1 ? "expense" : "expenses"}
+                        </div>
+                      </div>
+                    );
+                  }}
                 />
                 <Area
                   type="monotone"
@@ -381,12 +475,12 @@ export default function Analytics() {
       <Card className="rounded-3xl border-0 shadow-soft p-6 bg-card">
         <h2 className="font-display text-xl mb-1">Categories this month</h2>
         <p className="text-xs text-muted-foreground mb-4">
-          Soft view of where your {currency} flowed.
+          Soft view of where your money flowed (in USD).
         </p>
         <div className="h-80">
           {thisMonthCats.length === 0 ? (
             <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-              No expenses this month in {currency}
+              No expenses this month
             </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
@@ -398,7 +492,7 @@ export default function Analytics() {
                   tickLine={false}
                   axisLine={false}
                   fontSize={11}
-                  tickFormatter={(v) => formatInCurrency(v, currency)}
+                  tickFormatter={(v) => formatUSD(v)}
                 />
                 <YAxis
                   type="category"
@@ -423,7 +517,7 @@ export default function Analytics() {
                     boxShadow: "var(--shadow-card)",
                     fontSize: 12,
                   }}
-                  formatter={(v: number) => formatInCurrency(v, currency)}
+                  formatter={(v: number) => formatUSD(v)}
                 />
                 <Bar dataKey="amount" radius={[8, 8, 8, 8]}>
                   {thisMonthCats.map((entry) => (
@@ -450,7 +544,7 @@ export default function Analytics() {
                 {getCategoryMeta(insights.topThisMonth[0]).emoji}{" "}
                 {getCategoryMeta(insights.topThisMonth[0]).key}
               </span>{" "}
-              ({formatInCurrency(insights.topThisMonth[1], currency)}).
+              ({formatUSD(insights.topThisMonth[1])}).
             </p>
           ) : (
             <p className="text-muted-foreground">No spending recorded this month yet.</p>
@@ -476,8 +570,13 @@ export default function Analytics() {
               Your biggest single expense was{" "}
               <span className="font-medium">{insights.biggest.description}</span> at{" "}
               <span className="tabular-nums">
-                {formatInCurrency(getMyAmount(insights.biggest), currency)}
+                {formatUSD(toUSD(getMyAmount(insights.biggest), insights.biggest.currency))}
               </span>
+              {insights.biggest.currency !== "USD" && (
+                <span className="text-muted-foreground">
+                  {" "}(converted from {formatOriginal(getMyAmount(insights.biggest), insights.biggest.currency)})
+                </span>
+              )}
               {" "}(your share).
             </p>
           )}
@@ -485,9 +584,7 @@ export default function Analytics() {
           {insights.topTrip && (
             <p>
               Your <span className="font-medium">{insights.topTrip[0]}</span> trip cost{" "}
-              <span className="tabular-nums">
-                {formatInCurrency(insights.topTrip[1].total, currency)}
-              </span>{" "}
+              <span className="tabular-nums">{formatUSD(insights.topTrip[1].total)}</span>{" "}
               total across {insights.topTrip[1].count}{" "}
               {insights.topTrip[1].count === 1 ? "expense" : "expenses"}.
             </p>
