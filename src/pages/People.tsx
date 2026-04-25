@@ -326,7 +326,15 @@ export default function People() {
         )}
       </div>
 
-      <Dialog open={!!selectedPerson} onOpenChange={(open) => !open && setSelectedPerson(null)}>
+      <Dialog
+        open={!!selectedPerson}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedPerson(null);
+            setExpandedExpenseId(null);
+          }
+        }}
+      >
         <DialogContent className="rounded-3xl border-0 shadow-soft max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center gap-3">
