@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { getExpenses, getSplits, type Expense, type ExpenseSplit } from "@/lib/data";
+import { getExpenses, getSplits, getCategoryMeta, type Expense, type ExpenseSplit } from "@/lib/data";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatMoney, toDisplayAmount, DISPLAY_CURRENCY } from "@/lib/format";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { formatMoney, toDisplayAmount, DISPLAY_CURRENCY, formatDate } from "@/lib/format";
 import { ArrowDownLeft, ArrowUpRight, Bell, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ export default function People() {
   const [splits, setSplits] = useState<ExpenseSplit[]>([]);
   const [sendingTo, setSendingTo] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterMode>("all");
+  const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
 
   const sendReminder = async (person: string, amount: number) => {
     setSendingTo(person);
@@ -106,6 +108,50 @@ export default function People() {
     return balances;
   }, [balances, filter]);
 
+  // Per-person expense breakdown for the detail dialog.
+  const personDetails = useMemo(() => {
+    if (!selectedPerson) return null;
+    const expenseById = new Map(expenses.map((e) => [e.id, e]));
+    const OWE_PREFIX_RE = /^\s*\[you owe\]\s*/i;
+    type Row = {
+      id: string;
+      date: string;
+      description: string;
+      category: string;
+      amount: number; // in display currency
+      direction: "they-owe" | "i-owe";
+      is_paid: boolean;
+    };
+    const rows: Row[] = [];
+    for (const s of splits) {
+      const e = expenseById.get(s.expense_id);
+      if (!e) continue;
+      const hasOwePrefix = OWE_PREFIX_RE.test(s.person_name);
+      const cleanName = s.person_name.replace(OWE_PREFIX_RE, "").trim();
+      if (!hasOwePrefix && cleanName !== ME && e.paid_by !== ME) continue;
+      const other = hasOwePrefix ? cleanName : e.paid_by === ME ? cleanName : e.paid_by;
+      if (other !== selectedPerson) continue;
+      const iOweThem = hasOwePrefix ? true : e.paid_by !== ME;
+      rows.push({
+        id: s.id,
+        date: e.date,
+        description: e.description,
+        category: e.category,
+        amount: toDisplayAmount(s.amount_owed, e.currency),
+        direction: iOweThem ? "i-owe" : "they-owe",
+        is_paid: s.is_paid,
+      });
+    }
+    rows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const open = rows.filter((r) => !r.is_paid);
+    const settled = rows.filter((r) => r.is_paid);
+    return { rows, open, settled };
+  }, [selectedPerson, expenses, splits]);
+
+  const selectedBalance = selectedPerson
+    ? balances.find((b) => b.person === selectedPerson)
+    : null;
+
   return (
     <div className="space-y-8 pt-4 fade-in">
       <header>
@@ -187,30 +233,37 @@ export default function People() {
               className="rounded-3xl border-0 shadow-soft p-6 bg-card rise-in"
               style={{ animationDelay: `${i * 60}ms` }}
             >
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-2xl bg-secondary flex items-center justify-center font-display text-lg text-foreground">
-                  {b.person[0]}
-                </div>
-                <div className="min-w-0">
-                  <div className="font-medium truncate">{b.person}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {settled ? "All settled" : owedToMe ? "owes you" : "you owe"}
+              <button
+                type="button"
+                onClick={() => setSelectedPerson(b.person)}
+                className="block w-full text-left -m-6 p-6 rounded-3xl transition-colors hover:bg-foreground/[0.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={`View expenses with ${b.person}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-2xl bg-secondary flex items-center justify-center font-display text-lg text-foreground">
+                    {b.person[0]}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{b.person}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {settled ? "All settled" : owedToMe ? "owes you" : "you owe"}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="mt-5">
-                <div
-                  className={`font-display text-3xl tabular-nums ${
-                    settled ? "text-muted-foreground" : owedToMe ? "text-owed" : "text-owe"
-                  }`}
-                >
-                  {settled ? formatMoney(0) : formatMoney(Math.abs(b.net))}
+                <div className="mt-5">
+                  <div
+                    className={`font-display text-3xl tabular-nums ${
+                      settled ? "text-muted-foreground" : owedToMe ? "text-owed" : "text-owe"
+                    }`}
+                  >
+                    {settled ? formatMoney(0) : formatMoney(Math.abs(b.net))}
+                  </div>
                 </div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
-                <span>Pending {formatMoney(b.pending)}</span>
-                <span>Settled {formatMoney(b.settled)}</span>
-              </div>
+                <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Pending {formatMoney(b.pending)}</span>
+                  <span>Settled {formatMoney(b.settled)}</span>
+                </div>
+              </button>
               {owedToMe && !settled && (
                 <Button
                   onClick={() => sendReminder(b.person, b.net)}
@@ -242,6 +295,112 @@ export default function People() {
           </div>
         )}
       </div>
+
+      <Dialog open={!!selectedPerson} onOpenChange={(open) => !open && setSelectedPerson(null)}>
+        <DialogContent className="rounded-3xl border-0 shadow-soft max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-2xl bg-secondary flex items-center justify-center font-display text-lg text-foreground">
+                {selectedPerson?.[0]}
+              </div>
+              <div>
+                <DialogTitle className="font-display text-2xl">{selectedPerson}</DialogTitle>
+                <DialogDescription>
+                  {selectedBalance
+                    ? Math.abs(selectedBalance.net) < 0.005
+                      ? "All settled ✨"
+                      : selectedBalance.net > 0
+                        ? `Owes you ${formatMoney(selectedBalance.net)}`
+                        : `You owe ${formatMoney(Math.abs(selectedBalance.net))}`
+                    : ""}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {personDetails && (
+            <div className="space-y-6 mt-2">
+              {personDetails.open.length > 0 && (
+                <section>
+                  <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-medium mb-3">
+                    Open expenses
+                  </h3>
+                  <ul className="space-y-2">
+                    {personDetails.open.map((r) => {
+                      const meta = getCategoryMeta(r.category);
+                      const owedToMe = r.direction === "they-owe";
+                      return (
+                        <li
+                          key={r.id}
+                          className="flex items-center gap-3 p-3 rounded-2xl bg-secondary/50"
+                        >
+                          <div className="h-10 w-10 rounded-xl bg-background flex items-center justify-center text-lg">
+                            {meta.emoji}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium truncate">{r.description}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {formatDate(r.date)} · {r.category}
+                            </div>
+                          </div>
+                          <div
+                            className={`font-display text-lg tabular-nums ${
+                              owedToMe ? "text-owed" : "text-owe"
+                            }`}
+                          >
+                            {owedToMe ? "+" : "−"}
+                            {formatMoney(r.amount)}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              )}
+
+              {personDetails.settled.length > 0 && (
+                <section>
+                  <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-medium mb-3">
+                    Settled
+                  </h3>
+                  <ul className="space-y-2">
+                    {personDetails.settled.map((r) => {
+                      const meta = getCategoryMeta(r.category);
+                      return (
+                        <li
+                          key={r.id}
+                          className="flex items-center gap-3 p-3 rounded-2xl bg-secondary/30 opacity-70"
+                        >
+                          <div className="h-10 w-10 rounded-xl bg-background flex items-center justify-center text-lg">
+                            {meta.emoji}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium truncate line-through decoration-muted-foreground/50">
+                              {r.description}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {formatDate(r.date)} · {r.category}
+                            </div>
+                          </div>
+                          <div className="font-display text-sm tabular-nums text-muted-foreground">
+                            {formatMoney(r.amount)}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              )}
+
+              {personDetails.rows.length === 0 && (
+                <div className="text-sm text-muted-foreground text-center py-8">
+                  No expenses found.
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
