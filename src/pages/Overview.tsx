@@ -162,7 +162,7 @@ export default function Overview() {
                     {formatDate(e.date)} {e.event_tag && <>· {e.event_tag}</>}
                   </div>
                 </div>
-                <div className="text-sm font-medium tabular-nums">{formatMoney(e.total_amount, e.currency)}</div>
+                <div className="text-sm font-medium tabular-nums">{formatMoney(getMyAmount(e), e.currency)}</div>
               </li>
             ))}
           </ul>
