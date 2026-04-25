@@ -3,17 +3,20 @@ import { getExpenses, getSplits, type Expense, type ExpenseSplit } from "@/lib/d
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, toDisplayAmount, DISPLAY_CURRENCY } from "@/lib/format";
 import { ArrowDownLeft, ArrowUpRight, Bell, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const ME = "Claudia";
-const DEFAULT_CURRENCY = "EUR";
+
+type FilterMode = "all" | "they-owe" | "i-owe";
 
 export default function People() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [splits, setSplits] = useState<ExpenseSplit[]>([]);
   const [sendingTo, setSendingTo] = useState<string | null>(null);
+  const [filter, setFilter] = useState<FilterMode>("all");
 
   const sendReminder = async (person: string, amount: number) => {
     setSendingTo(person);
@@ -21,7 +24,7 @@ export default function People() {
       const { error } = await supabase.from("reminder_requests").insert({
         person_name: person,
         amount_owed: amount,
-        currency: DEFAULT_CURRENCY,
+        currency: DISPLAY_CURRENCY,
       });
       if (error) throw error;
       toast.success(`Reminder request sent to ${person} ✅`);
@@ -39,8 +42,13 @@ export default function People() {
   }, []);
 
   const balances = useMemo(() => {
-    // Positive = they owe me (I paid). Negative = I owe them (they paid).
-    const map = new Map<string, { net: number; theyOwe: number; iOwe: number; pending: number; settled: number }>();
+    // net = unpaid only. Positive = they owe me. Negative = I owe them.
+    // theyOwe / iOwe also count only unpaid (open) amounts.
+    // settled tracks paid amounts for display.
+    const map = new Map<
+      string,
+      { net: number; theyOwe: number; iOwe: number; pending: number; settled: number }
+    >();
     const expenseById = new Map(expenses.map((e) => [e.id, e]));
     const get = (p: string) => {
       if (!map.has(p)) map.set(p, { net: 0, theyOwe: 0, iOwe: 0, pending: 0, settled: 0 });
@@ -49,23 +57,42 @@ export default function People() {
     for (const s of splits) {
       const e = expenseById.get(s.expense_id);
       if (!e) continue;
-      const other = e.paid_by === ME ? s.person_name : e.paid_by;
+      // Only relate splits where I am one of the two sides.
       if (s.person_name !== ME && e.paid_by !== ME) continue;
+      const other = e.paid_by === ME ? s.person_name : e.paid_by;
+      if (other === ME) continue;
       const b = get(other);
-      const sign = e.paid_by === ME ? 1 : -1;
-      b.net += sign * s.amount_owed;
-      if (sign > 0) b.theyOwe += s.amount_owed;
-      else b.iOwe += s.amount_owed;
-      if (s.is_paid) b.settled += s.amount_owed;
-      else b.pending += s.amount_owed;
+      const amount = toDisplayAmount(s.amount_owed, e.currency);
+
+      if (s.is_paid) {
+        // Paid → already settled; do NOT add to net or open balances.
+        b.settled += amount;
+      } else {
+        b.pending += amount;
+        if (e.paid_by === ME) {
+          // They owe me.
+          b.net += amount;
+          b.theyOwe += amount;
+        } else {
+          // I owe them.
+          b.net -= amount;
+          b.iOwe += amount;
+        }
+      }
     }
     return Array.from(map.entries())
       .map(([person, b]) => ({ person, ...b }))
       .sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
   }, [expenses, splits]);
 
-  const totalOwedToMe = balances.filter((b) => b.net > 0).reduce((a, b) => a + b.net, 0);
-  const totalIOwe = balances.filter((b) => b.net < 0).reduce((a, b) => a + Math.abs(b.net), 0);
+  const totalOwedToMe = balances.filter((b) => b.net > 0.005).reduce((a, b) => a + b.net, 0);
+  const totalIOwe = balances.filter((b) => b.net < -0.005).reduce((a, b) => a + Math.abs(b.net), 0);
+
+  const visibleBalances = useMemo(() => {
+    if (filter === "they-owe") return balances.filter((b) => b.net > 0.005);
+    if (filter === "i-owe") return balances.filter((b) => b.net < -0.005);
+    return balances;
+  }, [balances, filter]);
 
   return (
     <div className="space-y-8 pt-4 fade-in">
@@ -75,28 +102,73 @@ export default function People() {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card className="rounded-3xl border-0 shadow-soft p-6 bg-owed-soft">
-          <div className="flex items-center gap-2 text-owed text-xs uppercase tracking-widest font-medium">
-            <ArrowDownLeft className="h-4 w-4" /> They owe you
-          </div>
-          <div className="font-display text-4xl mt-2 tabular-nums text-foreground">
-            {formatMoney(totalOwedToMe)}
-          </div>
-        </Card>
-        <Card className="rounded-3xl border-0 shadow-soft p-6 bg-owe-soft">
-          <div className="flex items-center gap-2 text-owe text-xs uppercase tracking-widest font-medium">
-            <ArrowUpRight className="h-4 w-4" /> You owe
-          </div>
-          <div className="font-display text-4xl mt-2 tabular-nums text-foreground">
-            {formatMoney(totalIOwe)}
-          </div>
-        </Card>
+        <button
+          type="button"
+          onClick={() => setFilter(filter === "they-owe" ? "all" : "they-owe")}
+          aria-pressed={filter === "they-owe"}
+          className={cn(
+            "text-left rounded-3xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            filter === "they-owe" ? "ring-2 ring-owed scale-[1.01]" : "hover:scale-[1.005]",
+          )}
+        >
+          <Card className="rounded-3xl border-0 shadow-soft p-6 bg-owed-soft">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-owed text-xs uppercase tracking-widest font-medium">
+                <ArrowDownLeft className="h-4 w-4" /> They owe you
+              </div>
+              <span className="text-[10px] uppercase tracking-widest text-owed/70">
+                {filter === "they-owe" ? "Filtering" : "Tap to filter"}
+              </span>
+            </div>
+            <div className="font-display text-4xl mt-2 tabular-nums text-foreground">
+              {formatMoney(totalOwedToMe)}
+            </div>
+          </Card>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setFilter(filter === "i-owe" ? "all" : "i-owe")}
+          aria-pressed={filter === "i-owe"}
+          className={cn(
+            "text-left rounded-3xl transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            filter === "i-owe" ? "ring-2 ring-owe scale-[1.01]" : "hover:scale-[1.005]",
+          )}
+        >
+          <Card className="rounded-3xl border-0 shadow-soft p-6 bg-owe-soft">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-owe text-xs uppercase tracking-widest font-medium">
+                <ArrowUpRight className="h-4 w-4" /> You owe
+              </div>
+              <span className="text-[10px] uppercase tracking-widest text-owe/70">
+                {filter === "i-owe" ? "Filtering" : "Tap to filter"}
+              </span>
+            </div>
+            <div className="font-display text-4xl mt-2 tabular-nums text-foreground">
+              {formatMoney(totalIOwe)}
+            </div>
+          </Card>
+        </button>
       </div>
 
+      {filter !== "all" && (
+        <div className="flex items-center justify-between -mt-4">
+          <span className="text-xs text-muted-foreground">
+            Showing {filter === "they-owe" ? "people who owe you" : "people you owe"}
+          </span>
+          <button
+            onClick={() => setFilter("all")}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            Clear filter
+          </button>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {balances.map((b, i) => {
-          const owedToMe = b.net > 0;
-          const settled = Math.abs(b.net) < 0.01;
+        {visibleBalances.map((b, i) => {
+          const owedToMe = b.net > 0.005;
+          const settled = Math.abs(b.net) < 0.005;
           return (
             <Card
               key={b.person}
@@ -148,9 +220,13 @@ export default function People() {
             </Card>
           );
         })}
-        {balances.length === 0 && (
+        {visibleBalances.length === 0 && (
           <div className="col-span-full text-sm text-muted-foreground text-center py-12">
-            No shared expenses yet — peaceful solo finances.
+            {filter === "all"
+              ? "No shared expenses yet — peaceful solo finances."
+              : filter === "they-owe"
+                ? "Nobody owes you right now 🎉"
+                : "You don't owe anyone right now ✨"}
           </div>
         )}
       </div>
