@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { getExpenses, getSplits, getCategoryMeta, type Expense, type ExpenseSplit } from "@/lib/data";
+import {
+  getExpenses,
+  getSplits,
+  getCategoryMeta,
+  getItemsForExpense,
+  type Expense,
+  type ExpenseSplit,
+  type ExpenseItem,
+} from "@/lib/data";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { formatMoney, toDisplayAmount, DISPLAY_CURRENCY, formatDate } from "@/lib/format";
-import { ArrowDownLeft, ArrowUpRight, Bell, Loader2 } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Bell, ChevronDown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +27,28 @@ export default function People() {
   const [sendingTo, setSendingTo] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterMode>("all");
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
+  const [expandedExpenseId, setExpandedExpenseId] = useState<string | null>(null);
+  const [itemsByExpense, setItemsByExpense] = useState<Record<string, ExpenseItem[]>>({});
+  const [loadingItemsFor, setLoadingItemsFor] = useState<string | null>(null);
+
+  const toggleExpenseItems = async (expenseId: string) => {
+    if (expandedExpenseId === expenseId) {
+      setExpandedExpenseId(null);
+      return;
+    }
+    setExpandedExpenseId(expenseId);
+    if (!itemsByExpense[expenseId]) {
+      setLoadingItemsFor(expenseId);
+      try {
+        const items = await getItemsForExpense(expenseId);
+        setItemsByExpense((prev) => ({ ...prev, [expenseId]: items }));
+      } catch (err) {
+        console.error("getItemsForExpense failed", err);
+      } finally {
+        setLoadingItemsFor(null);
+      }
+    }
+  };
 
   const sendReminder = async (person: string, amount: number) => {
     setSendingTo(person);
@@ -115,6 +145,7 @@ export default function People() {
     const OWE_PREFIX_RE = /^\s*\[you owe\]\s*/i;
     type Row = {
       id: string;
+      expense_id: string;
       date: string;
       description: string;
       category: string;
@@ -134,6 +165,7 @@ export default function People() {
       const iOweThem = hasOwePrefix ? true : e.paid_by !== ME;
       rows.push({
         id: s.id,
+        expense_id: s.expense_id,
         date: e.date,
         description: e.description,
         category: e.category,
@@ -296,7 +328,15 @@ export default function People() {
         )}
       </div>
 
-      <Dialog open={!!selectedPerson} onOpenChange={(open) => !open && setSelectedPerson(null)}>
+      <Dialog
+        open={!!selectedPerson}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedPerson(null);
+            setExpandedExpenseId(null);
+          }
+        }}
+      >
         <DialogContent className="rounded-3xl border-0 shadow-soft max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <div className="flex items-center gap-3">
@@ -329,28 +369,84 @@ export default function People() {
                     {personDetails.open.map((r) => {
                       const meta = getCategoryMeta(r.category);
                       const owedToMe = r.direction === "they-owe";
+                      const isExpanded = expandedExpenseId === r.expense_id;
+                      const items = itemsByExpense[r.expense_id];
+                      const isLoading = loadingItemsFor === r.expense_id;
+                      // Items relevant to this person: assigned to them, assigned to ME (still split), or unassigned (shared).
+                      const relevantItems = items
+                        ? items.filter(
+                            (it) =>
+                              !it.assigned_to ||
+                              it.assigned_to === selectedPerson ||
+                              it.assigned_to === ME,
+                          )
+                        : [];
                       return (
-                        <li
-                          key={r.id}
-                          className="flex items-center gap-3 p-3 rounded-2xl bg-secondary/50"
-                        >
-                          <div className="h-10 w-10 rounded-xl bg-background flex items-center justify-center text-lg">
-                            {meta.emoji}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="font-medium truncate">{r.description}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {formatDate(r.date)} · {r.category}
-                            </div>
-                          </div>
-                          <div
-                            className={`font-display text-lg tabular-nums ${
-                              owedToMe ? "text-owed" : "text-owe"
-                            }`}
+                        <li key={r.id} className="rounded-2xl bg-secondary/50 overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => toggleExpenseItems(r.expense_id)}
+                            className="w-full flex items-center gap-3 p-3 text-left hover:bg-secondary/70 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-2xl"
+                            aria-expanded={isExpanded}
                           >
-                            {owedToMe ? "+" : "−"}
-                            {formatMoney(r.amount)}
-                          </div>
+                            <div className="h-10 w-10 rounded-xl bg-background flex items-center justify-center text-lg">
+                              {meta.emoji}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium truncate">{r.description}</div>
+                              <div className="text-xs text-muted-foreground">
+                                {formatDate(r.date)} · {r.category}
+                              </div>
+                            </div>
+                            <div
+                              className={`font-display text-lg tabular-nums ${
+                                owedToMe ? "text-owed" : "text-owe"
+                              }`}
+                            >
+                              {owedToMe ? "+" : "−"}
+                              {formatMoney(r.amount)}
+                            </div>
+                            <ChevronDown
+                              className={cn(
+                                "h-4 w-4 text-muted-foreground transition-transform",
+                                isExpanded && "rotate-180",
+                              )}
+                            />
+                          </button>
+                          {isExpanded && (
+                            <div className="px-3 pb-3 pt-1 border-t border-border/40 bg-background/40">
+                              {isLoading ? (
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground py-3">
+                                  <Loader2 className="h-3 w-3 animate-spin" /> Loading items…
+                                </div>
+                              ) : relevantItems.length > 0 ? (
+                                <ul className="space-y-1.5 mt-2">
+                                  {relevantItems.map((it) => (
+                                    <li
+                                      key={it.id}
+                                      className="flex items-center justify-between text-sm py-1"
+                                    >
+                                      <div className="min-w-0 flex-1">
+                                        <span className="truncate">{it.item_name}</span>
+                                        {it.assigned_to && (
+                                          <span className="ml-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+                                            {it.assigned_to === ME ? "you" : it.assigned_to}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <span className="tabular-nums text-muted-foreground">
+                                        {formatMoney(toDisplayAmount(it.amount, expenses.find((e) => e.id === r.expense_id)?.currency ?? "USD"))}
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <div className="text-xs text-muted-foreground py-3">
+                                  No itemized breakdown for this expense.
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </li>
                       );
                     })}
