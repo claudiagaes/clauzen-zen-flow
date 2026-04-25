@@ -24,6 +24,7 @@ interface CurrencyContextValue {
 }
 
 const CurrencyContext = createContext<CurrencyContextValue | null>(null);
+CurrencyContext.displayName = "CurrencyContext";
 
 function readInitial(): DisplayCurrency {
   if (typeof window === "undefined") return "USD";
