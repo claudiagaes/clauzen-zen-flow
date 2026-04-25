@@ -27,6 +27,28 @@ export default function People() {
   const [sendingTo, setSendingTo] = useState<string | null>(null);
   const [filter, setFilter] = useState<FilterMode>("all");
   const [selectedPerson, setSelectedPerson] = useState<string | null>(null);
+  const [expandedExpenseId, setExpandedExpenseId] = useState<string | null>(null);
+  const [itemsByExpense, setItemsByExpense] = useState<Record<string, ExpenseItem[]>>({});
+  const [loadingItemsFor, setLoadingItemsFor] = useState<string | null>(null);
+
+  const toggleExpenseItems = async (expenseId: string) => {
+    if (expandedExpenseId === expenseId) {
+      setExpandedExpenseId(null);
+      return;
+    }
+    setExpandedExpenseId(expenseId);
+    if (!itemsByExpense[expenseId]) {
+      setLoadingItemsFor(expenseId);
+      try {
+        const items = await getItemsForExpense(expenseId);
+        setItemsByExpense((prev) => ({ ...prev, [expenseId]: items }));
+      } catch (err) {
+        console.error("getItemsForExpense failed", err);
+      } finally {
+        setLoadingItemsFor(null);
+      }
+    }
+  };
 
   const sendReminder = async (person: string, amount: number) => {
     setSendingTo(person);
