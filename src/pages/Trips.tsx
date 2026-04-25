@@ -172,7 +172,7 @@ function TripDetail({ event, onBack }: { event: EventGroup; onBack: () => void }
                   <div className="text-sm font-medium truncate">{e.description}</div>
                   <div className="text-xs text-muted-foreground">{formatDate(e.date)} · paid by {e.paid_by}</div>
                 </div>
-                <div className="text-sm font-medium tabular-nums">{formatMoney(e.total_amount, e.currency)}</div>
+                <div className="text-sm font-medium tabular-nums">{formatMoney(getMyAmount(e), e.currency)}</div>
               </li>
             );
           })}
