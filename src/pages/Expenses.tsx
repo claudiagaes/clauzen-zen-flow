@@ -136,6 +136,8 @@ export default function Expenses() {
               isOpen={openId === e.id}
               onToggle={() => setOpenId(openId === e.id ? null : e.id)}
               onCategoryChange={(next) => handleCategoryChange(e.id, next)}
+              onEventTagChange={(next) => handleEventTagChange(e.id, next)}
+              eventOptions={events}
               first={i === 0}
             />
           ))}
