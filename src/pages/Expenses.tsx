@@ -5,15 +5,16 @@ import {
   getExpenses,
   getItemsForExpense,
   getSplitsForExpense,
+  updateExpenseCategory,
   type Expense,
   type ExpenseItem,
   type ExpenseSplit,
 } from "@/lib/data";
-import { CategoryChip } from "@/components/CategoryChip";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { formatDate, formatMoney } from "@/lib/format";
 import { DateFilter, type DatePresetKey, type DateRange, presetToRange } from "@/components/DateFilter";
-import { ChevronDown, Check, X } from "lucide-react";
+import { ChevronDown, Check, X, Plus } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -21,6 +22,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CategoryEditor } from "@/components/CategoryEditor";
+import { AddExpenseDialog } from "@/components/AddExpenseDialog";
+import { toast } from "sonner";
 
 export default function Expenses() {
   const [all, setAll] = useState<Expense[]>([]);
@@ -30,8 +34,20 @@ export default function Expenses() {
   const [event, setEvent] = useState<string>("all");
   const [currency, setCurrency] = useState<string>("all");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
-  useEffect(() => { getExpenses().then(setAll); }, []);
+  const refresh = () => getExpenses().then(setAll);
+  useEffect(() => { refresh(); }, []);
+
+  const handleCategoryChange = async (expenseId: string, next: string) => {
+    // Optimistic update.
+    setAll((prev) => prev.map((e) => (e.id === expenseId ? { ...e, category: next } : e)));
+    const ok = await updateExpenseCategory(expenseId, next);
+    if (!ok) {
+      toast.error("Couldn't update category");
+      refresh();
+    }
+  };
 
   const events = useMemo(
     () => Array.from(new Set(all.map((e) => e.event_tag).filter(Boolean) as string[])),
@@ -54,9 +70,14 @@ export default function Expenses() {
 
   return (
     <div className="space-y-8 pt-4 fade-in">
-      <header>
-        <h1 className="font-display text-3xl md:text-4xl">Expenses</h1>
-        <p className="text-muted-foreground mt-1">Browse, filter, and breathe.</p>
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-3xl md:text-4xl">Expenses</h1>
+          <p className="text-muted-foreground mt-1">Browse, filter, and breathe.</p>
+        </div>
+        <Button onClick={() => setAddOpen(true)} className="rounded-2xl shrink-0">
+          <Plus className="h-4 w-4" /> Add expense
+        </Button>
       </header>
 
       <Card className="rounded-3xl border-0 shadow-soft bg-card p-4 md:p-5">
@@ -99,11 +120,14 @@ export default function Expenses() {
               expense={e}
               isOpen={openId === e.id}
               onToggle={() => setOpenId(openId === e.id ? null : e.id)}
+              onCategoryChange={(next) => handleCategoryChange(e.id, next)}
               first={i === 0}
             />
           ))}
         </ul>
       </Card>
+
+      <AddExpenseDialog open={addOpen} onOpenChange={setAddOpen} onCreated={refresh} />
     </div>
   );
 }
@@ -129,8 +153,8 @@ function FilterSelect({
 }
 
 function ExpenseRow({
-  expense, isOpen, onToggle, first,
-}: { expense: Expense; isOpen: boolean; onToggle: () => void; first: boolean }) {
+  expense, isOpen, onToggle, onCategoryChange, first,
+}: { expense: Expense; isOpen: boolean; onToggle: () => void; onCategoryChange: (next: string) => void; first: boolean }) {
   const meta = getCategoryMeta(expense.category);
   const [splits, setSplits] = useState<ExpenseSplit[]>([]);
   const [items, setItems] = useState<ExpenseItem[]>([]);
@@ -144,30 +168,48 @@ function ExpenseRow({
 
   return (
     <li className={`${first ? "" : "border-t border-border/50"}`}>
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-secondary/40 transition-colors text-left"
+      <div
+        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-secondary/40 transition-colors"
       >
-        <div
-          className="h-11 w-11 rounded-2xl flex items-center justify-center text-lg shrink-0"
+        <button
+          type="button"
+          onClick={onToggle}
+          className="h-11 w-11 rounded-2xl flex items-center justify-center text-lg shrink-0 hover:opacity-90 transition-opacity"
           style={{ backgroundColor: `hsl(var(--${meta.token}))` }}
+          aria-label="Toggle details"
         >
           {meta.emoji}
-        </div>
-        <div className="min-w-0 flex-1">
+        </button>
+        <button
+          type="button"
+          onClick={onToggle}
+          className="min-w-0 flex-1 text-left"
+        >
           <div className="text-sm font-medium truncate">{expense.description}</div>
           <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
             <span>{formatDate(expense.date, { month: "short", day: "numeric", year: "numeric" })}</span>
             {expense.event_tag && <><span>·</span><span className="text-foreground/70">{expense.event_tag}</span></>}
             {expense.is_shared && <><span>·</span><span className="text-primary">shared</span></>}
           </div>
+        </button>
+        <div className="hidden md:block">
+          <CategoryEditor value={expense.category} onChange={onCategoryChange} />
         </div>
-        <div className="hidden md:block"><CategoryChip category={expense.category} size="sm" /></div>
-        <div className="text-sm font-medium tabular-nums w-24 text-right">
+        <button
+          type="button"
+          onClick={onToggle}
+          className="text-sm font-medium tabular-nums w-24 text-right"
+        >
           {formatMoney(expense.total_amount, expense.currency)}
-        </div>
-        <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
-      </button>
+        </button>
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={isOpen ? "Collapse" : "Expand"}
+        >
+          <ChevronDown className={`h-4 w-4 text-muted-foreground shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+        </button>
+      </div>
 
       {isOpen && (
         <div className="px-5 pb-5 pt-1 fade-in">

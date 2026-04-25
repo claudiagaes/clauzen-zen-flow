@@ -38,25 +38,50 @@ export interface ExpenseItem {
 
 export const CATEGORIES = [
   { key: "Food & Dining", emoji: "🍽️", token: "cat-food" },
-  { key: "Drinks", emoji: "🍺", token: "cat-drinks" },
+  { key: "Drinks & Nightlife", emoji: "🍺", token: "cat-drinks" },
   { key: "Groceries", emoji: "🛒", token: "cat-groceries" },
   { key: "Shopping", emoji: "🛍️", token: "cat-shopping" },
   { key: "Transport", emoji: "🚗", token: "cat-transport" },
-  { key: "Travel", emoji: "✈️", token: "cat-travel" },
-  { key: "Rent", emoji: "🏠", token: "cat-rent" },
-  { key: "Bills", emoji: "💡", token: "cat-bills" },
+  { key: "Trips & Travel", emoji: "✈️", token: "cat-travel" },
+  { key: "Rent & Housing", emoji: "🏠", token: "cat-rent" },
+  { key: "Bills & Utilities", emoji: "💡", token: "cat-bills" },
   { key: "Entertainment", emoji: "🎬", token: "cat-entertainment" },
-  { key: "Health", emoji: "💊", token: "cat-health" },
+  { key: "Health & Pharmacy", emoji: "💊", token: "cat-health" },
   { key: "Education", emoji: "🎓", token: "cat-education" },
   { key: "Pets", emoji: "🐾", token: "cat-pets" },
-  { key: "Home", emoji: "🧹", token: "cat-home" },
+  { key: "Home & Cleaning", emoji: "🧹", token: "cat-home" },
   { key: "Gifts", emoji: "🎁", token: "cat-gifts" },
   { key: "Other", emoji: "📦", token: "cat-other" },
 ] as const;
 
+// Aliases map legacy / Splitwise / abbreviated names → canonical CATEGORIES key.
+const CATEGORY_ALIASES: Record<string, string> = {
+  "drinks": "Drinks & Nightlife",
+  "nightlife": "Drinks & Nightlife",
+  "travel": "Trips & Travel",
+  "trips": "Trips & Travel",
+  "rent": "Rent & Housing",
+  "housing": "Rent & Housing",
+  "bills": "Bills & Utilities",
+  "utilities": "Bills & Utilities",
+  "health": "Health & Pharmacy",
+  "pharmacy": "Health & Pharmacy",
+  "home": "Home & Cleaning",
+  "cleaning": "Home & Cleaning",
+};
+
+export function resolveCategory(category: string): string {
+  if (!category) return "Other";
+  const exact = CATEGORIES.find((c) => c.key.toLowerCase() === category.toLowerCase());
+  if (exact) return exact.key;
+  const alias = CATEGORY_ALIASES[category.toLowerCase()];
+  return alias ?? "Other";
+}
+
 export function getCategoryMeta(category: string) {
+  const resolved = resolveCategory(category);
   return (
-    CATEGORIES.find((c) => c.key.toLowerCase() === category.toLowerCase()) ??
+    CATEGORIES.find((c) => c.key === resolved) ??
     CATEGORIES[CATEGORIES.length - 1]
   );
 }
@@ -245,6 +270,69 @@ export async function getItemsForExpense(expenseId: string): Promise<ExpenseItem
     .eq("expense_id", expenseId);
   logIfError("getItemsForExpense", error);
   return (data ?? []) as ExpenseItem[];
+}
+
+export async function updateExpenseCategory(expenseId: string, category: string): Promise<boolean> {
+  const { error } = await supabase
+    .from("expenses")
+    .update({ category })
+    .eq("id", expenseId);
+  logIfError("updateExpenseCategory", error);
+  return !error;
+}
+
+export interface NewExpenseInput {
+  date: string; // ISO
+  description: string;
+  total_amount: number;
+  currency: Currency;
+  category: string;
+  event_tag: string | null;
+  paid_by: string;
+  shared_with: string[]; // names of other people the expense is shared with (excluding payer)
+  notes?: string | null;
+}
+
+export async function createExpense(input: NewExpenseInput): Promise<Expense | null> {
+  const isShared = input.shared_with.length > 0;
+  const payload = {
+    date: input.date,
+    description: input.description,
+    total_amount: input.total_amount,
+    currency: input.currency,
+    category: input.category,
+    paid_by: input.paid_by,
+    is_shared: isShared,
+    event_tag: input.event_tag,
+    notes: input.notes ?? null,
+    splitwise_expense_id: null,
+    splitwise_group_id: null,
+    receipt_image_url: null,
+  };
+  const { data, error } = await supabase
+    .from("expenses")
+    .insert(payload)
+    .select("*")
+    .single();
+  if (error || !data) {
+    logIfError("createExpense", error);
+    return null;
+  }
+  const expense = data as Expense;
+
+  if (isShared) {
+    const everyone = [input.paid_by, ...input.shared_with];
+    const per = +(input.total_amount / everyone.length).toFixed(2);
+    const splitRows = input.shared_with.map((p) => ({
+      expense_id: expense.id,
+      person_name: p,
+      amount_owed: per,
+      is_paid: false,
+    }));
+    const { error: splitErr } = await supabase.from("expense_splits").insert(splitRows);
+    logIfError("createExpense.splits", splitErr);
+  }
+  return expense;
 }
 
 export const PEOPLE_LIST = PEOPLE;
