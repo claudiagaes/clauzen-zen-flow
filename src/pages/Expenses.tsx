@@ -34,8 +34,20 @@ export default function Expenses() {
   const [event, setEvent] = useState<string>("all");
   const [currency, setCurrency] = useState<string>("all");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
 
-  useEffect(() => { getExpenses().then(setAll); }, []);
+  const refresh = () => getExpenses().then(setAll);
+  useEffect(() => { refresh(); }, []);
+
+  const handleCategoryChange = async (expenseId: string, next: string) => {
+    // Optimistic update.
+    setAll((prev) => prev.map((e) => (e.id === expenseId ? { ...e, category: next } : e)));
+    const ok = await updateExpenseCategory(expenseId, next);
+    if (!ok) {
+      toast.error("Couldn't update category");
+      refresh();
+    }
+  };
 
   const events = useMemo(
     () => Array.from(new Set(all.map((e) => e.event_tag).filter(Boolean) as string[])),
