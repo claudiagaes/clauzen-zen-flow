@@ -4,6 +4,7 @@ import {
   getCategoryMeta,
   getExpenses,
   getItemsForExpense,
+  getMyAmount,
   getSplitsForExpense,
   updateExpenseCategory,
   updateExpenseEventTag,
