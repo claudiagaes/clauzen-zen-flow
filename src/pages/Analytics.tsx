@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { format } from "date-fns";
+import { format as formatDateFns } from "date-fns";
 import { CalendarIcon } from "lucide-react";
 import { getCategoryMeta, getExpenses, getMyAmount, CATEGORIES, type Expense } from "@/lib/data";
+import { useCurrency } from "@/contexts/CurrencyContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -20,28 +21,6 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 
-// Fixed conversion rates → USD (display only)
-const FX_TO_USD: Record<string, number> = {
-  USD: 1,
-  EUR: 1.08,
-  MXN: 0.05,
-};
-
-function toUSD(amount: number, currency: string): number {
-  const rate = FX_TO_USD[currency] ?? 1;
-  return amount * rate;
-}
-
-function formatUSD(amount: number) {
-  const rounded = amount % 1 === 0 ? amount.toFixed(0) : amount.toFixed(2);
-  return `$${Number(rounded).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
-}
-
-function formatOriginal(amount: number, currency: string) {
-  const sym = currency === "EUR" ? "€" : currency === "MXN" ? "MX$" : "$";
-  const rounded = amount % 1 === 0 ? amount.toFixed(0) : amount.toFixed(2);
-  return `${sym}${Number(rounded).toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
-}
 
 type DateRangeKey = "this-month" | "last-3" | "this-year" | "all" | "custom";
 const DATE_RANGES: { key: DateRangeKey; label: string }[] = [
