@@ -233,30 +233,37 @@ export default function People() {
               className="rounded-3xl border-0 shadow-soft p-6 bg-card rise-in"
               style={{ animationDelay: `${i * 60}ms` }}
             >
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-2xl bg-secondary flex items-center justify-center font-display text-lg text-foreground">
-                  {b.person[0]}
-                </div>
-                <div className="min-w-0">
-                  <div className="font-medium truncate">{b.person}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {settled ? "All settled" : owedToMe ? "owes you" : "you owe"}
+              <button
+                type="button"
+                onClick={() => setSelectedPerson(b.person)}
+                className="block w-full text-left -m-6 p-6 rounded-3xl transition-colors hover:bg-foreground/[0.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={`View expenses with ${b.person}`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-2xl bg-secondary flex items-center justify-center font-display text-lg text-foreground">
+                    {b.person[0]}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{b.person}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {settled ? "All settled" : owedToMe ? "owes you" : "you owe"}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="mt-5">
-                <div
-                  className={`font-display text-3xl tabular-nums ${
-                    settled ? "text-muted-foreground" : owedToMe ? "text-owed" : "text-owe"
-                  }`}
-                >
-                  {settled ? formatMoney(0) : formatMoney(Math.abs(b.net))}
+                <div className="mt-5">
+                  <div
+                    className={`font-display text-3xl tabular-nums ${
+                      settled ? "text-muted-foreground" : owedToMe ? "text-owed" : "text-owe"
+                    }`}
+                  >
+                    {settled ? formatMoney(0) : formatMoney(Math.abs(b.net))}
+                  </div>
                 </div>
-              </div>
-              <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
-                <span>Pending {formatMoney(b.pending)}</span>
-                <span>Settled {formatMoney(b.settled)}</span>
-              </div>
+                <div className="mt-4 pt-4 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Pending {formatMoney(b.pending)}</span>
+                  <span>Settled {formatMoney(b.settled)}</span>
+                </div>
+              </button>
               {owedToMe && !settled && (
                 <Button
                   onClick={() => sendReminder(b.person, b.net)}
