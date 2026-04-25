@@ -136,7 +136,7 @@ export default function People() {
           b.settled > 0.005,
       )
       .sort((a, b) => Math.abs(b.net) - Math.abs(a.net));
-  }, [expenses, splits]);
+  }, [expenses, splits, convert]);
 
   const totalOwedToMe = balances.filter((b) => b.net > 0.005).reduce((a, b) => a + b.net, 0);
   const totalIOwe = balances.filter((b) => b.net < -0.005).reduce((a, b) => a + Math.abs(b.net), 0);
@@ -187,7 +187,7 @@ export default function People() {
     const open = rows.filter((r) => !r.is_paid);
     const settled = rows.filter((r) => r.is_paid);
     return { rows, open, settled };
-  }, [selectedPerson, expenses, splits]);
+  }, [selectedPerson, expenses, splits, convert]);
 
   const selectedBalance = selectedPerson
     ? balances.find((b) => b.person === selectedPerson)
