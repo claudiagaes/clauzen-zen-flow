@@ -40,6 +40,7 @@ export function ExpenseChat({ expenses, currency }: Props) {
       const lite = expenses.map((e) => ({
         date: e.date,
         description: e.description,
+        my_amount: e.my_amount ?? e.total_amount,
         total_amount: e.total_amount,
         currency: e.currency,
         category: e.category,
