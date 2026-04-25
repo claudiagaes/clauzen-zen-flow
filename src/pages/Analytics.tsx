@@ -186,7 +186,7 @@ export default function Analytics() {
     const topTrip = Array.from(tripMap.entries()).sort((a, b) => b[1].total - a[1].total)[0];
 
     return { topThisMonth, pctDelta, biggest, topTrip, monthTotal };
-  }, [filtered]);
+  }, [filtered, convert]);
 
   return (
     <div className="space-y-8 pt-4 fade-in">
