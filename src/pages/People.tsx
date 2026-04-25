@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { getExpenses, getSplits, getCategoryMeta, type Expense, type ExpenseSplit } from "@/lib/data";
+import {
+  getExpenses,
+  getSplits,
+  getCategoryMeta,
+  getItemsForExpense,
+  type Expense,
+  type ExpenseSplit,
+  type ExpenseItem,
+} from "@/lib/data";
 import { supabase } from "@/lib/supabase";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { formatMoney, toDisplayAmount, DISPLAY_CURRENCY, formatDate } from "@/lib/format";
-import { ArrowDownLeft, ArrowUpRight, Bell, Loader2 } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Bell, ChevronDown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
