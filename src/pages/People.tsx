@@ -1,10 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { getExpenses, getSplits, type Expense, type ExpenseSplit } from "@/lib/data";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/format";
-import { ArrowDownLeft, ArrowUpRight } from "lucide-react";
+import { ArrowDownLeft, ArrowUpRight, Bell, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 const ME = "Claudia";
+const DEFAULT_CURRENCY = "EUR";
 
 export default function People() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
