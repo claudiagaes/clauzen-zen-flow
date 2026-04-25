@@ -31,9 +31,9 @@ export default function Trips() {
     }
     return Array.from(groups.entries()).map(([name, list]) => {
       const sorted = [...list].sort((a, b) => +new Date(a.date) - +new Date(b.date));
-      const total = list.reduce((a, x) => a + x.total_amount, 0);
+      const total = list.reduce((a, x) => a + getMyAmount(x), 0);
       const catTotals = new Map<string, number>();
-      list.forEach((x) => catTotals.set(x.category, (catTotals.get(x.category) ?? 0) + x.total_amount));
+      list.forEach((x) => catTotals.set(x.category, (catTotals.get(x.category) ?? 0) + getMyAmount(x)));
       const topCategory = Array.from(catTotals.entries()).sort((a, b) => b[1] - a[1])[0][0];
       return {
         name,
