@@ -335,4 +335,18 @@ export async function createExpense(input: NewExpenseInput): Promise<Expense | n
   return expense;
 }
 
+export interface Contact {
+  id: string;
+  name: string;
+}
+
+export async function getContacts(): Promise<Contact[]> {
+  const { data, error } = await supabase
+    .from("contacts")
+    .select("id, name")
+    .order("name", { ascending: true });
+  logIfError("getContacts", error);
+  return (data ?? []) as Contact[];
+}
+
 export const PEOPLE_LIST = PEOPLE;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CATEGORIES, createExpense, PEOPLE_LIST, type Currency, type NewExpenseInput } from "@/lib/data";
+import { CATEGORIES, createExpense, getContacts, type Contact, type Currency, type NewExpenseInput } from "@/lib/data";
 import { Loader2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -45,6 +45,17 @@ export function AddExpenseDialog({ open, onOpenChange, onCreated }: Props) {
   const [paidBy, setPaidBy] = useState<string>(ME);
   const [sharedWith, setSharedWith] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [loadingContacts, setLoadingContacts] = useState(false);
+
+  // Load contacts whenever the dialog opens (so newly added contacts show up).
+  useEffect(() => {
+    if (!open) return;
+    setLoadingContacts(true);
+    getContacts()
+      .then(setContacts)
+      .finally(() => setLoadingContacts(false));
+  }, [open]);
 
   const reset = () => {
     setDate(todayISO);
@@ -102,8 +113,9 @@ export function AddExpenseDialog({ open, onOpenChange, onCreated }: Props) {
     onCreated?.();
   };
 
-  // Combine ME + seeded people for selection.
-  const people = Array.from(new Set([ME, ...PEOPLE_LIST]));
+  // "You" + dynamic contacts from Supabase. Dedup by name in case ME is also a contact.
+  const contactNames = contacts.map((c) => c.name).filter((n) => n && n !== ME);
+  const people = [ME, ...contactNames];
 
   return (
     <Dialog
@@ -222,32 +234,44 @@ export function AddExpenseDialog({ open, onOpenChange, onCreated }: Props) {
 
           <div className="space-y-2">
             <Label className="text-xs">Shared with</Label>
-            <div className="flex flex-wrap gap-2">
-              {people
-                .filter((p) => p !== paidBy)
-                .map((p) => {
-                  const active = sharedWith.includes(p);
-                  return (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => togglePerson(p)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-colors ${
-                        active
-                          ? "bg-primary text-primary-foreground"
-                          : "bg-secondary text-foreground/70 hover:bg-secondary/70"
-                      }`}
-                    >
-                      {active ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
-                      {p === ME ? "You" : p}
-                    </button>
-                  );
-                })}
-            </div>
-            {sharedWith.length === 0 && (
+            {loadingContacts ? (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" /> Loading contacts…
+              </div>
+            ) : contactNames.length === 0 ? (
               <p className="text-[11px] text-muted-foreground">
-                Leave empty for a personal expense (no splits created).
+                No contacts yet. Add some to your contacts table to split expenses.
               </p>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {people
+                    .filter((p) => p !== paidBy)
+                    .map((p) => {
+                      const active = sharedWith.includes(p);
+                      return (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => togglePerson(p)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-colors ${
+                            active
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-secondary text-foreground/70 hover:bg-secondary/70"
+                          }`}
+                        >
+                          {active ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+                          {p === ME ? "You" : p}
+                        </button>
+                      );
+                    })}
+                </div>
+                {sharedWith.length === 0 && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Leave empty for a personal expense (no splits created).
+                  </p>
+                )}
+              </>
             )}
           </div>
 
