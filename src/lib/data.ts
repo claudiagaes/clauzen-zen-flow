@@ -190,6 +190,7 @@ for (const s of SEEDS) {
     date: daysAgo(s.d),
     description: s.desc,
     total_amount: s.amount,
+    my_amount: isShared && s.shared ? +(s.amount / (1 + s.shared.length)).toFixed(2) : s.amount,
     currency: s.currency ?? "EUR",
     category: s.cat,
     paid_by: s.paid_by ?? "Claudia",
