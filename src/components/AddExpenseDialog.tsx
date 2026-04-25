@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CATEGORIES, createExpense, PEOPLE_LIST, type Currency, type NewExpenseInput } from "@/lib/data";
+import { CATEGORIES, createExpense, getContacts, type Contact, type Currency, type NewExpenseInput } from "@/lib/data";
 import { Loader2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
