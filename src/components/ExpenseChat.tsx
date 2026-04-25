@@ -37,34 +37,53 @@ export function ExpenseChat({ expenses, currency }: Props) {
     setLoading(true);
 
     try {
-      const lite = expenses.map((e) => ({
-        date: e.date,
-        description: e.description,
-        my_amount: e.my_amount ?? e.total_amount,
-        total_amount: e.total_amount,
-        currency: e.currency,
-        category: e.category,
-        event_tag: e.event_tag,
-        paid_by: e.paid_by,
-      }));
+      // Trim payload: keep only the fields the model needs and cap at the most recent 250 rows.
+      const lite = expenses
+        .slice(0, 250)
+        .map((e) => ({
+          date: e.date.slice(0, 10),
+          description: e.description,
+          my_amount: Number((e.my_amount ?? e.total_amount).toFixed(2)),
+          total_amount: Number(e.total_amount.toFixed(2)),
+          currency: e.currency,
+          category: e.category,
+          event_tag: e.event_tag,
+          paid_by: e.paid_by,
+        }));
 
       const { data, error } = await supabase.functions.invoke("expense-chat", {
-        body: { messages: next, expenses: lite, currency },
+        body: { messages: next, expenses: lite, currency, truncated: expenses.length > 250 },
       });
 
       if (error) {
         const status = (error as { context?: { status?: number } }).context?.status;
-        let msg = "Something went wrong. Try again?";
+        // Try to extract the server-provided error message.
+        let serverMsg: string | undefined;
+        try {
+          const ctxRes = (error as { context?: { response?: Response } }).context?.response;
+          if (ctxRes) {
+            const cloned = ctxRes.clone();
+            const body = await cloned.json().catch(() => null);
+            serverMsg = body?.error;
+          }
+        } catch { /* ignore */ }
+
+        let msg = serverMsg ?? error.message ?? "Something went wrong. Try again?";
         if (status === 429) msg = "Too many questions in a row — give it a moment 🌿";
         if (status === 402) msg = "AI credits ran out. Add funds in your Lovable AI workspace.";
+        console.error("[expense-chat] error", { status, error, serverMsg });
         setMessages([...next, { role: "assistant", content: msg }]);
+      } else if (data?.error) {
+        console.error("[expense-chat] data.error", data.error);
+        setMessages([...next, { role: "assistant", content: data.error }]);
       } else {
         setMessages([...next, { role: "assistant", content: data?.reply ?? "..." }]);
       }
     } catch (e) {
+      console.error("[expense-chat] network", e);
       setMessages([
         ...next,
-        { role: "assistant", content: "Network hiccup — please try that again." },
+        { role: "assistant", content: `Network hiccup — ${e instanceof Error ? e.message : "please try that again."}` },
       ]);
     } finally {
       setLoading(false);

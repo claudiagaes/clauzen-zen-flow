@@ -23,34 +23,62 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, expenses, currency } = await req.json() as {
+    const body = await req.json().catch(() => null);
+    if (!body) {
+      return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { messages, expenses, currency, truncated } = body as {
       messages: { role: "user" | "assistant"; content: string }[];
       expenses: ExpenseLite[];
       currency: string;
+      truncated?: boolean;
     };
 
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return new Response(JSON.stringify({ error: "No messages provided" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    if (!LOVABLE_API_KEY) {
+      console.error("LOVABLE_API_KEY missing in edge function env");
+      return new Response(JSON.stringify({ error: "AI not configured (missing key)" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    console.log(`[expense-chat] msgs=${messages.length} expenses=${expenses?.length ?? 0} currency=${currency}`);
 
     // Compress: send a compact CSV-ish ledger to keep context small.
-    // my_amount = the user's personal share (what we use for all totals).
-    // total_amount = the full bill (shown only when shared, for context).
-    const ledger = expenses
+    const safeExpenses = Array.isArray(expenses) ? expenses : [];
+    const ledger = safeExpenses
       .map((e) => {
-        const shared = Math.abs(e.my_amount - e.total_amount) > 0.005;
+        const my = Number(e.my_amount ?? e.total_amount);
+        const tot = Number(e.total_amount);
+        const shared = Math.abs(my - tot) > 0.005;
         const amountField = shared
-          ? `${e.currency} ${e.my_amount.toFixed(2)} (of ${e.total_amount.toFixed(2)} total)`
-          : `${e.currency} ${e.my_amount.toFixed(2)}`;
-        return `${e.date.slice(0, 10)} | ${amountField} | ${e.category} | ${e.event_tag ?? "Daily Life"} | paid_by=${e.paid_by} | ${e.description}`;
+          ? `${e.currency} ${my.toFixed(2)} (of ${tot.toFixed(2)} total)`
+          : `${e.currency} ${my.toFixed(2)}`;
+        return `${(e.date ?? "").slice(0, 10)} | ${amountField} | ${e.category} | ${e.event_tag ?? "Daily Life"} | paid_by=${e.paid_by} | ${e.description}`;
       })
       .join("\n");
 
-    const totalRows = expenses.length;
-    const totalAmount = expenses.reduce((a, e) => a + e.my_amount, 0);
+    const totalRows = safeExpenses.length;
+    const totalAmount = safeExpenses.reduce(
+      (a, e) => a + Number(e.my_amount ?? e.total_amount ?? 0),
+      0,
+    );
 
     const systemPrompt = `You are a friendly personal-finance assistant analyzing the user's expense ledger.
 
-CURRENT FILTER: currency = ${currency}. ${totalRows} expenses, the user's share totals ${currency} ${totalAmount.toFixed(2)}.
+CURRENT FILTER: currency = ${currency}. ${totalRows} expenses${truncated ? " (truncated to most recent 250)" : ""}, the user's share totals ${currency} ${totalAmount.toFixed(2)}.
 
 Each line of the ledger below is one expense. The amount shown is the USER'S PERSONAL SHARE; for shared expenses, the full bill is in parentheses for context:
 DATE | CURRENCY MY_SHARE [(of FULL_TOTAL)] | CATEGORY | EVENT_TAG | paid_by=PERSON | DESCRIPTION
@@ -66,19 +94,30 @@ Rules:
 - Keep answers short and use markdown (lists, **bold**) for clarity. Use emojis sparingly.
 - If the ledger has no matching data, say so plainly.`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [{ role: "system", content: systemPrompt }, ...messages],
-      }),
-    });
+    let response: Response;
+    try {
+      response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [{ role: "system", content: systemPrompt }, ...messages],
+        }),
+      });
+    } catch (fetchErr) {
+      console.error("[expense-chat] gateway fetch threw:", fetchErr);
+      return new Response(
+        JSON.stringify({ error: `Couldn't reach AI gateway: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}` }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
     if (!response.ok) {
+      const t = await response.text().catch(() => "");
+      console.error(`[expense-chat] gateway ${response.status}:`, t);
       if (response.status === 429) {
         return new Response(
           JSON.stringify({ error: "Rate limit hit — try again in a moment." }),
@@ -91,12 +130,10 @@ Rules:
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
-      return new Response(JSON.stringify({ error: "AI gateway error" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ error: `AI gateway error (${response.status}): ${t.slice(0, 300)}` }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     const data = await response.json();
