@@ -124,6 +124,24 @@ export default function People() {
                 <span>Pending {formatMoney(b.pending)}</span>
                 <span>Settled {formatMoney(b.settled)}</span>
               </div>
+              {owedToMe && !settled && (
+                <Button
+                  onClick={() => sendReminder(b.person, b.net)}
+                  disabled={sendingTo === b.person}
+                  className="mt-4 w-full rounded-2xl bg-owed-soft text-owed hover:bg-owed-soft/80 border-0 shadow-none"
+                  variant="secondary"
+                >
+                  {sendingTo === b.person ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" /> Sending…
+                    </>
+                  ) : (
+                    <>
+                      <Bell className="h-4 w-4" /> Send Reminder 🔔
+                    </>
+                  )}
+                </Button>
+              )}
             </Card>
           );
         })}
