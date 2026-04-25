@@ -31,6 +31,7 @@ export default function People() {
   const [expandedExpenseId, setExpandedExpenseId] = useState<string | null>(null);
   const [itemsByExpense, setItemsByExpense] = useState<Record<string, ExpenseItem[]>>({});
   const [loadingItemsFor, setLoadingItemsFor] = useState<string | null>(null);
+  const { format, convert } = useCurrency();
 
   const toggleExpenseItems = async (expenseId: string) => {
     if (expandedExpenseId === expenseId) {
