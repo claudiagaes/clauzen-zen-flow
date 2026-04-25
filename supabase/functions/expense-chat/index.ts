@@ -1,7 +1,5 @@
 // Edge function: ask natural-language questions about the user's expenses.
-// The client sends the (already-filtered) expense rows + chat history.
-// We send them, plus a tight system prompt, to Lovable AI Gateway and return the answer.
-// v2 — added explicit deploy trigger
+// v3 — full rewrite to force redeploy.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,7 +20,9 @@ interface ExpenseLite {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
 
   try {
     const body = await req.json().catch(() => null);
@@ -49,7 +49,7 @@ Deno.serve(async (req) => {
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY missing in edge function env");
+      console.error("LOVABLE_API_KEY missing");
       return new Response(JSON.stringify({ error: "AI not configured (missing key)" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -58,7 +58,6 @@ Deno.serve(async (req) => {
 
     console.log(`[expense-chat] msgs=${messages.length} expenses=${expenses?.length ?? 0} currency=${currency}`);
 
-    // Compress: send a compact CSV-ish ledger to keep context small.
     const safeExpenses = Array.isArray(expenses) ? expenses : [];
     const ledger = safeExpenses
       .map((e) => {
@@ -92,7 +91,7 @@ Rules:
 - Answer the user's question using ONLY the ledger above. Don't invent numbers.
 - All totals, sums, and averages must use the user's personal share — NOT the full bill.
 - Always show amounts in ${currency} with the symbol or code.
-- When the user asks about a month/period, list the relevant expenses (date + description + their share) and the total share.
+- When asked about a month/period, list the relevant expenses (date + description + their share) and the total share.
 - Keep answers short and use markdown (lists, **bold**) for clarity. Use emojis sparingly.
 - If the ledger has no matching data, say so plainly.`;
 
@@ -112,7 +111,9 @@ Rules:
     } catch (fetchErr) {
       console.error("[expense-chat] gateway fetch threw:", fetchErr);
       return new Response(
-        JSON.stringify({ error: `Couldn't reach AI gateway: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}` }),
+        JSON.stringify({
+          error: `Couldn't reach AI gateway: ${fetchErr instanceof Error ? fetchErr.message : String(fetchErr)}`,
+        }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -128,7 +129,7 @@ Rules:
       }
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: "AI credits exhausted. Add funds in Lovable AI workspace settings." }),
+          JSON.stringify({ error: "AI credits exhausted. Add funds in your Lovable AI workspace." }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
