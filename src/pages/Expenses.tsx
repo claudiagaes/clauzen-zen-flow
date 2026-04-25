@@ -5,15 +5,16 @@ import {
   getExpenses,
   getItemsForExpense,
   getSplitsForExpense,
+  updateExpenseCategory,
   type Expense,
   type ExpenseItem,
   type ExpenseSplit,
 } from "@/lib/data";
-import { CategoryChip } from "@/components/CategoryChip";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { formatDate, formatMoney } from "@/lib/format";
 import { DateFilter, type DatePresetKey, type DateRange, presetToRange } from "@/components/DateFilter";
-import { ChevronDown, Check, X } from "lucide-react";
+import { ChevronDown, Check, X, Plus } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -21,6 +22,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { CategoryEditor } from "@/components/CategoryEditor";
+import { AddExpenseDialog } from "@/components/AddExpenseDialog";
+import { toast } from "sonner";
 
 export default function Expenses() {
   const [all, setAll] = useState<Expense[]>([]);
