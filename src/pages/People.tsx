@@ -295,6 +295,112 @@ export default function People() {
           </div>
         )}
       </div>
+
+      <Dialog open={!!selectedPerson} onOpenChange={(open) => !open && setSelectedPerson(null)}>
+        <DialogContent className="rounded-3xl border-0 shadow-soft max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-2xl bg-secondary flex items-center justify-center font-display text-lg text-foreground">
+                {selectedPerson?.[0]}
+              </div>
+              <div>
+                <DialogTitle className="font-display text-2xl">{selectedPerson}</DialogTitle>
+                <DialogDescription>
+                  {selectedBalance
+                    ? Math.abs(selectedBalance.net) < 0.005
+                      ? "All settled ✨"
+                      : selectedBalance.net > 0
+                        ? `Owes you ${formatMoney(selectedBalance.net)}`
+                        : `You owe ${formatMoney(Math.abs(selectedBalance.net))}`
+                    : ""}
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {personDetails && (
+            <div className="space-y-6 mt-2">
+              {personDetails.open.length > 0 && (
+                <section>
+                  <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-medium mb-3">
+                    Open expenses
+                  </h3>
+                  <ul className="space-y-2">
+                    {personDetails.open.map((r) => {
+                      const meta = getCategoryMeta(r.category);
+                      const owedToMe = r.direction === "they-owe";
+                      return (
+                        <li
+                          key={r.id}
+                          className="flex items-center gap-3 p-3 rounded-2xl bg-secondary/50"
+                        >
+                          <div className="h-10 w-10 rounded-xl bg-background flex items-center justify-center text-lg">
+                            {meta.emoji}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium truncate">{r.description}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {formatDate(r.date)} · {r.category}
+                            </div>
+                          </div>
+                          <div
+                            className={`font-display text-lg tabular-nums ${
+                              owedToMe ? "text-owed" : "text-owe"
+                            }`}
+                          >
+                            {owedToMe ? "+" : "−"}
+                            {formatMoney(r.amount)}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              )}
+
+              {personDetails.settled.length > 0 && (
+                <section>
+                  <h3 className="text-xs uppercase tracking-widest text-muted-foreground font-medium mb-3">
+                    Settled
+                  </h3>
+                  <ul className="space-y-2">
+                    {personDetails.settled.map((r) => {
+                      const meta = getCategoryMeta(r.category);
+                      return (
+                        <li
+                          key={r.id}
+                          className="flex items-center gap-3 p-3 rounded-2xl bg-secondary/30 opacity-70"
+                        >
+                          <div className="h-10 w-10 rounded-xl bg-background flex items-center justify-center text-lg">
+                            {meta.emoji}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium truncate line-through decoration-muted-foreground/50">
+                              {r.description}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {formatDate(r.date)} · {r.category}
+                            </div>
+                          </div>
+                          <div className="font-display text-sm tabular-nums text-muted-foreground">
+                            {formatMoney(r.amount)}
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              )}
+
+              {personDetails.rows.length === 0 && (
+                <div className="text-sm text-muted-foreground text-center py-8">
+                  No expenses found.
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
