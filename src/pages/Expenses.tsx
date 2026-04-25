@@ -118,7 +118,7 @@ export default function Expenses() {
           />
 
           <span className="ml-auto text-xs text-muted-foreground">
-            {filtered.length} results · {formatMoney(filtered.reduce((a, x) => a + x.total_amount, 0))}
+            {filtered.length} results · {formatMoney(filtered.reduce((a, x) => a + getMyAmount(x), 0))} your share
           </span>
         </div>
       </Card>
