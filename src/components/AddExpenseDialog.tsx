@@ -11,7 +11,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CATEGORIES, createExpense, getContacts, type Contact, type Currency, type NewExpenseInput } from "@/lib/data";
-import { Loader2, Plus, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Check, ChevronsUpDown, Loader2, Plus, X } from "lucide-react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -218,60 +220,45 @@ export function AddExpenseDialog({ open, onOpenChange, onCreated }: Props) {
 
           <div className="space-y-1.5">
             <Label className="text-xs">Paid by</Label>
-            <Select value={paidBy} onValueChange={setPaidBy}>
-              <SelectTrigger className="rounded-xl border-0 bg-secondary">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="rounded-2xl border-0 shadow-card">
-                {people.map((p) => (
-                  <SelectItem key={p} value={p} className="rounded-xl">
-                    {p === ME ? "You" : p}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <PersonCombobox
+              value={paidBy}
+              onChange={setPaidBy}
+              people={people}
+              me={ME}
+              placeholder="Search who paid…"
+              loading={loadingContacts}
+            />
           </div>
 
           <div className="space-y-2">
             <Label className="text-xs">Shared with</Label>
-            {loadingContacts ? (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Loader2 className="h-3 w-3 animate-spin" /> Loading contacts…
+            <SharedWithCombobox
+              selected={sharedWith}
+              onToggle={togglePerson}
+              onClear={() => setSharedWith([])}
+              people={people.filter((p) => p !== paidBy)}
+              me={ME}
+              loading={loadingContacts}
+            />
+            {sharedWith.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {sharedWith.map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => togglePerson(p)}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    {p === ME ? "You" : p}
+                    <X className="h-3 w-3" />
+                  </button>
+                ))}
               </div>
-            ) : contactNames.length === 0 ? (
+            )}
+            {sharedWith.length === 0 && !loadingContacts && (
               <p className="text-[11px] text-muted-foreground">
-                No contacts yet. Add some to your contacts table to split expenses.
+                Leave empty for a personal expense (no splits created).
               </p>
-            ) : (
-              <>
-                <div className="flex flex-wrap gap-2">
-                  {people
-                    .filter((p) => p !== paidBy)
-                    .map((p) => {
-                      const active = sharedWith.includes(p);
-                      return (
-                        <button
-                          key={p}
-                          type="button"
-                          onClick={() => togglePerson(p)}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs transition-colors ${
-                            active
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-secondary text-foreground/70 hover:bg-secondary/70"
-                          }`}
-                        >
-                          {active ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
-                          {p === ME ? "You" : p}
-                        </button>
-                      );
-                    })}
-                </div>
-                {sharedWith.length === 0 && (
-                  <p className="text-[11px] text-muted-foreground">
-                    Leave empty for a personal expense (no splits created).
-                  </p>
-                )}
-              </>
             )}
           </div>
 
@@ -299,5 +286,126 @@ export function AddExpenseDialog({ open, onOpenChange, onCreated }: Props) {
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+interface PersonComboboxProps {
+  value: string;
+  onChange: (v: string) => void;
+  people: string[];
+  me: string;
+  placeholder?: string;
+  loading?: boolean;
+}
+
+function PersonCombobox({ value, onChange, people, me, placeholder, loading }: PersonComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const label = value === me ? "You" : value;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="w-full flex items-center justify-between rounded-xl bg-secondary px-3 py-2 text-sm text-left"
+        >
+          <span className="truncate">{label || placeholder}</span>
+          <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="p-0 rounded-2xl border-0 shadow-card w-[--radix-popover-trigger-width]" align="start">
+        <Command>
+          <CommandInput placeholder={placeholder ?? "Search…"} />
+          <CommandList>
+            {loading ? (
+              <div className="flex items-center gap-2 px-3 py-4 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" /> Loading…
+              </div>
+            ) : (
+              <>
+                <CommandEmpty>No one found.</CommandEmpty>
+                <CommandGroup>
+                  {people.map((p) => (
+                    <CommandItem
+                      key={p}
+                      value={p === me ? `You ${p}` : p}
+                      onSelect={() => {
+                        onChange(p);
+                        setOpen(false);
+                      }}
+                      className="rounded-lg"
+                    >
+                      <Check className={`mr-2 h-4 w-4 ${value === p ? "opacity-100" : "opacity-0"}`} />
+                      {p === me ? "You" : p}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+interface SharedWithComboboxProps {
+  selected: string[];
+  onToggle: (name: string) => void;
+  onClear: () => void;
+  people: string[];
+  me: string;
+  loading?: boolean;
+}
+
+function SharedWithCombobox({ selected, onToggle, people, me, loading }: SharedWithComboboxProps) {
+  const [open, setOpen] = useState(false);
+  const summary =
+    selected.length === 0
+      ? "Search & add people…"
+      : `${selected.length} ${selected.length === 1 ? "person" : "people"} selected`;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="w-full flex items-center justify-between rounded-xl bg-secondary px-3 py-2 text-sm text-left"
+        >
+          <span className="truncate text-muted-foreground">{summary}</span>
+          <ChevronsUpDown className="h-4 w-4 opacity-50 shrink-0" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="p-0 rounded-2xl border-0 shadow-card w-[--radix-popover-trigger-width]" align="start">
+        <Command>
+          <CommandInput placeholder="Search contacts…" />
+          <CommandList>
+            {loading ? (
+              <div className="flex items-center gap-2 px-3 py-4 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" /> Loading…
+              </div>
+            ) : (
+              <>
+                <CommandEmpty>No contacts found.</CommandEmpty>
+                <CommandGroup>
+                  {people.map((p) => {
+                    const active = selected.includes(p);
+                    return (
+                      <CommandItem
+                        key={p}
+                        value={p === me ? `You ${p}` : p}
+                        onSelect={() => onToggle(p)}
+                        className="rounded-lg"
+                      >
+                        <Check className={`mr-2 h-4 w-4 ${active ? "opacity-100" : "opacity-0"}`} />
+                        {p === me ? "You" : p}
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              </>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
