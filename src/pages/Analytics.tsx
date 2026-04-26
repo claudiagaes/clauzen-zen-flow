@@ -124,10 +124,20 @@ export default function Analytics() {
     [scoped, category],
   );
 
-  // Monthly totals in USD with count of expenses
+  // Monthly totals across ALL expenses (not date-filtered) — trend chart shows everything,
+  // and we highlight the months that fall inside the active date range.
+  const allValid = useMemo(
+    () => all.filter((e) => e.my_amount != null && e.my_amount > 0),
+    [all],
+  );
+  const allValidByCategory = useMemo(
+    () => (category === "all" ? allValid : allValid.filter((e) => e.category === category)),
+    [allValid, category],
+  );
+
   const byMonth = useMemo(() => {
     const map = new Map<string, { total: number; count: number }>();
-    for (const e of filtered) {
+    for (const e of allValidByCategory) {
       const d = new Date(e.date);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const cur = map.get(key) ?? { total: 0, count: 0 };
@@ -139,17 +149,46 @@ export default function Analytics() {
       .sort()
       .map(([key, { total, count }]) => {
         const [y, m] = key.split("-").map(Number);
+        const monthStart = new Date(y, m - 1, 1);
+        const monthEnd = new Date(y, m, 0, 23, 59, 59);
+        // A month is "in selected period" if any day of it overlaps the active range.
+        let inSelected = true;
+        if (dateRange !== "all") {
+          // Build active window
+          const now = new Date();
+          let from: Date | undefined;
+          let to: Date | undefined;
+          if (dateRange === "this-month") {
+            from = new Date(now.getFullYear(), now.getMonth(), 1);
+            to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+          } else if (dateRange === "last-month") {
+            from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            to = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+          } else if (dateRange === "last-3") {
+            from = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+            to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+          } else if (dateRange === "this-year") {
+            from = new Date(now.getFullYear(), 0, 1);
+            to = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+          } else if (dateRange === "custom") {
+            from = customFrom;
+            to = customTo;
+          }
+          if (from && monthEnd < from) inSelected = false;
+          if (to && monthStart > to) inSelected = false;
+        }
         return {
           key,
-          label: new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "short", year: "numeric" }),
+          label: monthStart.toLocaleDateString("en-US", { month: "short", year: "numeric" }),
           total: +total.toFixed(2),
           count,
+          inSelected,
         };
       });
-  }, [filtered, convert]);
+  }, [allValidByCategory, convert, dateRange, customFrom, customTo]);
 
-  // Top categories within the current scope (respects the active date range)
-  const thisMonthCats = useMemo(() => {
+  // Categories within the selected period (for the breakdown / pie)
+  const periodCats = useMemo(() => {
     const m = new Map<string, number>();
     scoped.forEach((e) =>
       m.set(e.category, (m.get(e.category) ?? 0) + convert(getMyAmount(e), e.currency)),
@@ -163,12 +202,19 @@ export default function Analytics() {
       .sort((a, b) => b.amount - a.amount);
   }, [scoped, convert]);
 
-  // Stats
-  const topCat = thisMonthCats[0];
+  // Total spent in the selected period (after category filter)
+  const periodTotal = useMemo(
+    () => filtered.reduce((a, e) => a + convert(getMyAmount(e), e.currency), 0),
+    [filtered, convert],
+  );
 
-  // Proportional "vs last month": compare same-window day-of-month range.
-  // If today is April 15, compare Apr 1–15 vs Mar 1–15. If month is over, full vs full.
-  const { trend, trendIsPartial } = useMemo(() => {
+  // Monthly average — only across months that have data (already filtered to my_amount > 0)
+  const avgMonthly = byMonth.length
+    ? byMonth.reduce((a, x) => a + x.total, 0) / byMonth.length
+    : 0;
+
+  // Vs last month — only meaningful if BOTH this month and last month have data > 0
+  const vsLastMonth = useMemo(() => {
     const now = new Date();
     const y = now.getFullYear();
     const m = now.getMonth();
@@ -179,14 +225,10 @@ export default function Analytics() {
     const sumWindow = (year: number, month: number, dayCap: number) => {
       const lastDay = new Date(year, month + 1, 0).getDate();
       const cap = Math.min(dayCap, lastDay);
-      return filtered
+      return allValidByCategory
         .filter((e) => {
           const d = new Date(e.date);
-          return (
-            d.getFullYear() === year &&
-            d.getMonth() === month &&
-            d.getDate() <= cap
-          );
+          return d.getFullYear() === year && d.getMonth() === month && d.getDate() <= cap;
         })
         .reduce((a, e) => a + convert(getMyAmount(e), e.currency), 0);
     };
@@ -195,56 +237,64 @@ export default function Analytics() {
     const lmDate = new Date(y, m - 1, 1);
     const lastTotal = sumWindow(lmDate.getFullYear(), lmDate.getMonth(), cutoffDay);
 
-    const t = lastTotal > 0 ? ((thisTotal - lastTotal) / lastTotal) * 100 : 0;
-    return { trend: t, trendIsPartial: !isCurrentMonthOver };
-  }, [filtered, convert]);
+    if (thisTotal <= 0 || lastTotal <= 0) {
+      return { available: false as const };
+    }
+    return {
+      available: true as const,
+      pct: ((thisTotal - lastTotal) / lastTotal) * 100,
+      isPartial: !isCurrentMonthOver,
+    };
+  }, [allValidByCategory, convert]);
 
-  const avgMonthly = byMonth.length
-    ? byMonth.reduce((a, x) => a + x.total, 0) / byMonth.length
-    : 0;
+  // Smart insight — top category in current period vs the period total
+  const smartInsight = useMemo(() => {
+    if (!periodCats.length || periodTotal <= 0) return null;
+    const top = periodCats[0];
+    const pct = (top.amount / periodTotal) * 100;
+    return { top, pct };
+  }, [periodCats, periodTotal]);
 
-  // Smart insights
-  const insights = useMemo(() => {
-    const now = new Date();
-    const monthExpenses = filtered.filter((e) => {
-      const d = new Date(e.date);
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    });
-    const monthTotal = monthExpenses.reduce((a, e) => a + convert(getMyAmount(e), e.currency), 0);
+  // Period label, used in copy
+  const periodLabel = useMemo(() => {
+    switch (dateRange) {
+      case "this-month":
+        return "this month";
+      case "last-month":
+        return "last month";
+      case "last-3":
+        return "in the last 3 months";
+      case "this-year":
+        return "this year";
+      case "all":
+        return "all time";
+      case "custom":
+        if (customFrom && customTo)
+          return `from ${formatDateFns(customFrom, "MMM d, yyyy")} to ${formatDateFns(customTo, "MMM d, yyyy")}`;
+        if (customFrom) return `from ${formatDateFns(customFrom, "MMM d, yyyy")}`;
+        if (customTo) return `until ${formatDateFns(customTo, "MMM d, yyyy")}`;
+        return "in the selected range";
+    }
+  }, [dateRange, customFrom, customTo]);
 
-    const catMap = new Map<string, number>();
-    monthExpenses.forEach((e) =>
-      catMap.set(e.category, (catMap.get(e.category) ?? 0) + convert(getMyAmount(e), e.currency)),
-    );
-    const topThisMonth = Array.from(catMap.entries()).sort((a, b) => b[1] - a[1])[0];
+  const periodTitle = useMemo(() => {
+    switch (dateRange) {
+      case "this-month":
+        return "This month";
+      case "last-month":
+        return "Last month";
+      case "last-3":
+        return "Last 3 months";
+      case "this-year":
+        return "This year";
+      case "all":
+        return "All time";
+      case "custom":
+        return "Selected range";
+    }
+  }, [dateRange]);
 
-    const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthTotal = filtered
-      .filter((e) => {
-        const d = new Date(e.date);
-        return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
-      })
-      .reduce((a, e) => a + convert(getMyAmount(e), e.currency), 0);
-
-    const pctDelta =
-      lastMonthTotal > 0 ? ((monthTotal - lastMonthTotal) / lastMonthTotal) * 100 : null;
-
-    const biggest = [...filtered].sort(
-      (a, b) => convert(getMyAmount(b), b.currency) - convert(getMyAmount(a), a.currency),
-    )[0];
-
-    const tripMap = new Map<string, { total: number; count: number }>();
-    filtered.forEach((e) => {
-      if (!e.event_tag) return;
-      const cur = tripMap.get(e.event_tag) ?? { total: 0, count: 0 };
-      cur.total += convert(getMyAmount(e), e.currency);
-      cur.count += 1;
-      tripMap.set(e.event_tag, cur);
-    });
-    const topTrip = Array.from(tripMap.entries()).sort((a, b) => b[1].total - a[1].total)[0];
-
-    return { topThisMonth, pctDelta, biggest, topTrip, monthTotal };
-  }, [filtered, convert]);
+  const hasPeriodData = periodTotal > 0 && filtered.length > 0;
 
   return (
     <div className="space-y-8 pt-4 fade-in">
