@@ -14,6 +14,8 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -67,7 +69,7 @@ export default function Analytics() {
   const [customOpen, setCustomOpen] = useState(false);
   const [draftFrom, setDraftFrom] = useState<Date | undefined>();
   const [draftTo, setDraftTo] = useState<Date | undefined>();
-  const { display, format: formatMoney, formatNative, convert } = useCurrency();
+  const { display, format: formatMoney, convert } = useCurrency();
 
   // When opening the picker, seed drafts with the currently applied range
   useEffect(() => {
@@ -122,10 +124,20 @@ export default function Analytics() {
     [scoped, category],
   );
 
-  // Monthly totals in USD with count of expenses
+  // Monthly totals across ALL expenses (not date-filtered) — trend chart shows everything,
+  // and we highlight the months that fall inside the active date range.
+  const allValid = useMemo(
+    () => all.filter((e) => e.my_amount != null && e.my_amount > 0),
+    [all],
+  );
+  const allValidByCategory = useMemo(
+    () => (category === "all" ? allValid : allValid.filter((e) => e.category === category)),
+    [allValid, category],
+  );
+
   const byMonth = useMemo(() => {
     const map = new Map<string, { total: number; count: number }>();
-    for (const e of filtered) {
+    for (const e of allValidByCategory) {
       const d = new Date(e.date);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const cur = map.get(key) ?? { total: 0, count: 0 };
@@ -137,17 +149,46 @@ export default function Analytics() {
       .sort()
       .map(([key, { total, count }]) => {
         const [y, m] = key.split("-").map(Number);
+        const monthStart = new Date(y, m - 1, 1);
+        const monthEnd = new Date(y, m, 0, 23, 59, 59);
+        // A month is "in selected period" if any day of it overlaps the active range.
+        let inSelected = true;
+        if (dateRange !== "all") {
+          // Build active window
+          const now = new Date();
+          let from: Date | undefined;
+          let to: Date | undefined;
+          if (dateRange === "this-month") {
+            from = new Date(now.getFullYear(), now.getMonth(), 1);
+            to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+          } else if (dateRange === "last-month") {
+            from = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            to = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+          } else if (dateRange === "last-3") {
+            from = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+            to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+          } else if (dateRange === "this-year") {
+            from = new Date(now.getFullYear(), 0, 1);
+            to = new Date(now.getFullYear(), 11, 31, 23, 59, 59);
+          } else if (dateRange === "custom") {
+            from = customFrom;
+            to = customTo;
+          }
+          if (from && monthEnd < from) inSelected = false;
+          if (to && monthStart > to) inSelected = false;
+        }
         return {
           key,
-          label: new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "short", year: "numeric" }),
+          label: monthStart.toLocaleDateString("en-US", { month: "short", year: "numeric" }),
           total: +total.toFixed(2),
           count,
+          inSelected,
         };
       });
-  }, [filtered, convert]);
+  }, [allValidByCategory, convert, dateRange, customFrom, customTo]);
 
-  // Top categories within the current scope (respects the active date range)
-  const thisMonthCats = useMemo(() => {
+  // Categories within the selected period (for the breakdown / pie)
+  const periodCats = useMemo(() => {
     const m = new Map<string, number>();
     scoped.forEach((e) =>
       m.set(e.category, (m.get(e.category) ?? 0) + convert(getMyAmount(e), e.currency)),
@@ -161,12 +202,19 @@ export default function Analytics() {
       .sort((a, b) => b.amount - a.amount);
   }, [scoped, convert]);
 
-  // Stats
-  const topCat = thisMonthCats[0];
+  // Total spent in the selected period (after category filter)
+  const periodTotal = useMemo(
+    () => filtered.reduce((a, e) => a + convert(getMyAmount(e), e.currency), 0),
+    [filtered, convert],
+  );
 
-  // Proportional "vs last month": compare same-window day-of-month range.
-  // If today is April 15, compare Apr 1–15 vs Mar 1–15. If month is over, full vs full.
-  const { trend, trendIsPartial } = useMemo(() => {
+  // Monthly average — only across months that have data (already filtered to my_amount > 0)
+  const avgMonthly = byMonth.length
+    ? byMonth.reduce((a, x) => a + x.total, 0) / byMonth.length
+    : 0;
+
+  // Vs last month — only meaningful if BOTH this month and last month have data > 0
+  const vsLastMonth = useMemo(() => {
     const now = new Date();
     const y = now.getFullYear();
     const m = now.getMonth();
@@ -177,14 +225,10 @@ export default function Analytics() {
     const sumWindow = (year: number, month: number, dayCap: number) => {
       const lastDay = new Date(year, month + 1, 0).getDate();
       const cap = Math.min(dayCap, lastDay);
-      return filtered
+      return allValidByCategory
         .filter((e) => {
           const d = new Date(e.date);
-          return (
-            d.getFullYear() === year &&
-            d.getMonth() === month &&
-            d.getDate() <= cap
-          );
+          return d.getFullYear() === year && d.getMonth() === month && d.getDate() <= cap;
         })
         .reduce((a, e) => a + convert(getMyAmount(e), e.currency), 0);
     };
@@ -193,56 +237,64 @@ export default function Analytics() {
     const lmDate = new Date(y, m - 1, 1);
     const lastTotal = sumWindow(lmDate.getFullYear(), lmDate.getMonth(), cutoffDay);
 
-    const t = lastTotal > 0 ? ((thisTotal - lastTotal) / lastTotal) * 100 : 0;
-    return { trend: t, trendIsPartial: !isCurrentMonthOver };
-  }, [filtered, convert]);
+    if (thisTotal <= 0 || lastTotal <= 0) {
+      return { available: false as const };
+    }
+    return {
+      available: true as const,
+      pct: ((thisTotal - lastTotal) / lastTotal) * 100,
+      isPartial: !isCurrentMonthOver,
+    };
+  }, [allValidByCategory, convert]);
 
-  const avgMonthly = byMonth.length
-    ? byMonth.reduce((a, x) => a + x.total, 0) / byMonth.length
-    : 0;
+  // Smart insight — top category in current period vs the period total
+  const smartInsight = useMemo(() => {
+    if (!periodCats.length || periodTotal <= 0) return null;
+    const top = periodCats[0];
+    const pct = (top.amount / periodTotal) * 100;
+    return { top, pct };
+  }, [periodCats, periodTotal]);
 
-  // Smart insights
-  const insights = useMemo(() => {
-    const now = new Date();
-    const monthExpenses = filtered.filter((e) => {
-      const d = new Date(e.date);
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    });
-    const monthTotal = monthExpenses.reduce((a, e) => a + convert(getMyAmount(e), e.currency), 0);
+  // Period label, used in copy
+  const periodLabel = useMemo(() => {
+    switch (dateRange) {
+      case "this-month":
+        return "this month";
+      case "last-month":
+        return "last month";
+      case "last-3":
+        return "in the last 3 months";
+      case "this-year":
+        return "this year";
+      case "all":
+        return "all time";
+      case "custom":
+        if (customFrom && customTo)
+          return `from ${formatDateFns(customFrom, "MMM d, yyyy")} to ${formatDateFns(customTo, "MMM d, yyyy")}`;
+        if (customFrom) return `from ${formatDateFns(customFrom, "MMM d, yyyy")}`;
+        if (customTo) return `until ${formatDateFns(customTo, "MMM d, yyyy")}`;
+        return "in the selected range";
+    }
+  }, [dateRange, customFrom, customTo]);
 
-    const catMap = new Map<string, number>();
-    monthExpenses.forEach((e) =>
-      catMap.set(e.category, (catMap.get(e.category) ?? 0) + convert(getMyAmount(e), e.currency)),
-    );
-    const topThisMonth = Array.from(catMap.entries()).sort((a, b) => b[1] - a[1])[0];
+  const periodTitle = useMemo(() => {
+    switch (dateRange) {
+      case "this-month":
+        return "This month";
+      case "last-month":
+        return "Last month";
+      case "last-3":
+        return "Last 3 months";
+      case "this-year":
+        return "This year";
+      case "all":
+        return "All time";
+      case "custom":
+        return "Selected range";
+    }
+  }, [dateRange]);
 
-    const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthTotal = filtered
-      .filter((e) => {
-        const d = new Date(e.date);
-        return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
-      })
-      .reduce((a, e) => a + convert(getMyAmount(e), e.currency), 0);
-
-    const pctDelta =
-      lastMonthTotal > 0 ? ((monthTotal - lastMonthTotal) / lastMonthTotal) * 100 : null;
-
-    const biggest = [...filtered].sort(
-      (a, b) => convert(getMyAmount(b), b.currency) - convert(getMyAmount(a), a.currency),
-    )[0];
-
-    const tripMap = new Map<string, { total: number; count: number }>();
-    filtered.forEach((e) => {
-      if (!e.event_tag) return;
-      const cur = tripMap.get(e.event_tag) ?? { total: 0, count: 0 };
-      cur.total += convert(getMyAmount(e), e.currency);
-      cur.count += 1;
-      tripMap.set(e.event_tag, cur);
-    });
-    const topTrip = Array.from(tripMap.entries()).sort((a, b) => b[1].total - a[1].total)[0];
-
-    return { topThisMonth, pctDelta, biggest, topTrip, monthTotal };
-  }, [filtered, convert]);
+  const hasPeriodData = periodTotal > 0 && filtered.length > 0;
 
   return (
     <div className="space-y-8 pt-4 fade-in">
@@ -376,68 +428,94 @@ export default function Analytics() {
         )}
       </div>
 
-      {/* Insights cards */}
+      {/* Smart insight banner */}
+      {smartInsight && (
+        <Card className="rounded-3xl border-0 shadow-soft p-5 bg-gradient-to-br from-primary-soft to-accent">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl leading-none mt-0.5">✨</span>
+            <p className="text-sm sm:text-base leading-relaxed text-foreground/90">
+              Your biggest expense category {periodLabel} is{" "}
+              <span className="font-medium">
+                {smartInsight.top.meta.emoji} {smartInsight.top.meta.key}
+              </span>{" "}
+              at{" "}
+              <span className="tabular-nums font-medium">
+                {formatMoney(smartInsight.top.amount)}
+              </span>{" "}
+              <span className="text-muted-foreground">
+                ({smartInsight.pct.toFixed(0)}% of total)
+              </span>
+              .
+            </p>
+          </div>
+        </Card>
+      )}
+
+      {/* Top stats row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {(() => {
-          const topLabel =
-            dateRange === "this-month"
-              ? "Top this month"
-              : dateRange === "last-month"
-                ? "Top last month"
-                : dateRange === "last-3"
-                  ? "Top · last 3 months"
-                  : dateRange === "this-year"
-                    ? "Top this year"
-                    : dateRange === "all"
-                      ? "Top overall"
-                      : "Top in range";
-          return topCat ? (
-            <Card className="rounded-3xl border-0 shadow-soft p-6 bg-primary-soft">
-              <div className="text-xs text-primary font-medium uppercase tracking-widest">
-                {topLabel}
-              </div>
-              <div className="font-display text-2xl mt-2">
-                {topCat.meta.emoji} {topCat.meta.key}
-              </div>
-              <div className="text-sm text-muted-foreground mt-1 tabular-nums">
-                {formatMoney(topCat.amount)}
-              </div>
-            </Card>
-          ) : (
-            <Card className="rounded-3xl border-0 shadow-soft p-6 bg-primary-soft">
-              <div className="text-xs text-primary font-medium uppercase tracking-widest">
-                {topLabel}
-              </div>
-              <div className="font-display text-2xl mt-2 text-muted-foreground">No data</div>
-            </Card>
-          );
-        })()}
+        {/* Total spent — prominent */}
+        <Card className="rounded-3xl border-0 shadow-soft p-6 bg-primary-soft md:col-span-1">
+          <div className="text-xs text-primary font-medium uppercase tracking-widest">
+            Total spent · {periodTitle.toLowerCase()}
+          </div>
+          <div className="font-display text-4xl md:text-5xl mt-3 tabular-nums leading-none">
+            {formatMoney(periodTotal)}
+          </div>
+          <div className="text-xs text-muted-foreground mt-2">
+            {filtered.length} {filtered.length === 1 ? "expense" : "expenses"}
+            {category !== "all" && ` · ${getCategoryMeta(category).emoji} ${getCategoryMeta(category).key}`}
+          </div>
+        </Card>
+
+        {/* Monthly average */}
         <Card className="rounded-3xl border-0 shadow-soft p-6 bg-secondary">
           <div className="text-xs text-foreground/70 uppercase tracking-widest font-medium">
             Monthly average
           </div>
-          <div className="font-display text-3xl mt-2 tabular-nums">{formatMoney(avgMonthly)}</div>
-          <div className="text-xs text-muted-foreground mt-1">
-            across {byMonth.length} {byMonth.length === 1 ? "month" : "months"} with data
+          <div className="font-display text-3xl mt-3 tabular-nums">
+            {byMonth.length > 0 ? formatMoney(avgMonthly) : "—"}
+          </div>
+          <div className="text-xs text-muted-foreground mt-2">
+            {byMonth.length > 0
+              ? `Based on ${byMonth.length} ${byMonth.length === 1 ? "month" : "months"} of data`
+              : "No months with data yet"}
           </div>
         </Card>
+
+        {/* Vs last month — only when both periods have data */}
         <Card className="rounded-3xl border-0 shadow-soft p-6 bg-accent">
           <div className="text-xs text-accent-foreground uppercase tracking-widest font-medium">
             Vs last month
           </div>
-          <div
-            className={`font-display text-3xl mt-2 tabular-nums ${trend > 0 ? "text-owe" : "text-owed"}`}
-          >
-            {trend > 0 ? "+" : ""}
-            {trend.toFixed(1)}%
-          </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            {trendIsPartial
-              ? `month-to-date vs same days last month`
-              : trend > 0
-                ? "a little more than last month — that's ok"
-                : "calmer than last month 🌿"}
-          </div>
+          {vsLastMonth.available ? (
+            <>
+              <div
+                className={cn(
+                  "font-display text-3xl mt-3 tabular-nums",
+                  vsLastMonth.pct > 0 ? "text-owe" : "text-owed",
+                )}
+              >
+                {vsLastMonth.pct > 0 ? "+" : ""}
+                {vsLastMonth.pct.toFixed(1)}%
+              </div>
+              <div className="text-xs text-muted-foreground mt-2">
+                {vsLastMonth.isPartial
+                  ? "month-to-date vs same days last month"
+                  : vsLastMonth.pct > 0
+                    ? "a little more than last month — that's ok"
+                    : "calmer than last month 🌿"}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="font-display text-2xl mt-3 text-muted-foreground">
+                No previous data
+              </div>
+              <div className="text-xs text-muted-foreground mt-2">
+                Need spending in both months to compare
+              </div>
+            </>
+          )}
         </Card>
       </div>
 
@@ -476,19 +554,80 @@ export default function Analytics() {
         </div>
       </div>
 
-      {/* Trend */}
+      {/* Empty state for the selected period */}
+      {!hasPeriodData && (
+        <Card className="rounded-3xl border-0 shadow-soft p-10 bg-card text-center">
+          <div className="text-4xl mb-3">🧘</div>
+          <p className="text-base text-foreground">No expense data for this period yet</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Try a different range or add an expense to see insights here.
+          </p>
+        </Card>
+      )}
+
+      {/* Monthly trend — always shows ALL months with data, highlights the selected period.
+          Renders bar chart if only 1 month total, line/area otherwise. */}
       <Card className="rounded-3xl border-0 shadow-soft p-6 bg-card">
         <h2 className="font-display text-xl mb-1">
-          Monthly trend{category !== "all" && <span className="text-muted-foreground"> · {category}</span>}
+          Monthly trend
+          {category !== "all" && (
+            <span className="text-muted-foreground"> · {category}</span>
+          )}
         </h2>
         <p className="text-xs text-muted-foreground mb-4">
-          How your spending breathes month to month (in USD).
+          All months with data. Highlighted bars/points are inside your selected period.
         </p>
         <div className="h-72">
           {byMonth.length === 0 ? (
             <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-              No expenses in this scope
+              No expenses yet
             </div>
+          ) : byMonth.length === 1 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={byMonth} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="2 6" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  stroke="hsl(var(--muted-foreground))"
+                  tickLine={false}
+                  axisLine={false}
+                  fontSize={11}
+                />
+                <YAxis
+                  stroke="hsl(var(--muted-foreground))"
+                  tickLine={false}
+                  axisLine={false}
+                  fontSize={11}
+                  tickFormatter={(v) => formatMoney(v)}
+                />
+                <Tooltip
+                  cursor={{ fill: "hsl(var(--secondary))", radius: 12 }}
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const p = payload[0].payload as { label: string; total: number; count: number };
+                    return (
+                      <div className="rounded-2xl bg-popover text-popover-foreground shadow-card px-4 py-2.5 text-xs">
+                        <div className="font-medium">{p.label}</div>
+                        <div className="text-muted-foreground mt-0.5">
+                          <span className="tabular-nums text-foreground">{formatMoney(p.total)}</span>
+                          {" "}across {p.count} {p.count === 1 ? "expense" : "expenses"}
+                        </div>
+                      </div>
+                    );
+                  }}
+                />
+                <Bar dataKey="total" radius={[10, 10, 10, 10]}>
+                  {byMonth.map((m) => (
+                    <Cell
+                      key={m.key}
+                      fill={
+                        m.inSelected ? "hsl(var(--primary))" : "hsl(var(--muted-foreground) / 0.25)"
+                      }
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={byMonth} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -516,27 +655,22 @@ export default function Analytics() {
                   tickFormatter={(v) => formatMoney(v)}
                 />
                 <Tooltip
-                  contentStyle={{
-                    borderRadius: 16,
-                    border: "none",
-                    background: "hsl(var(--popover))",
-                    color: "hsl(var(--popover-foreground))",
-                    boxShadow: "var(--shadow-card)",
-                    fontSize: 12,
-                  }}
                   content={({ active, payload }) => {
                     if (!active || !payload?.length) return null;
                     const p = payload[0].payload as {
                       label: string;
                       total: number;
                       count: number;
+                      inSelected: boolean;
                     };
                     return (
-                      <div
-                        className="rounded-2xl bg-popover text-popover-foreground shadow-card px-4 py-2.5 text-xs"
-                        style={{ border: "none" }}
-                      >
-                        <div className="font-medium">{p.label}</div>
+                      <div className="rounded-2xl bg-popover text-popover-foreground shadow-card px-4 py-2.5 text-xs">
+                        <div className="font-medium">
+                          {p.label}
+                          {p.inSelected && (
+                            <span className="ml-1.5 text-[10px] text-primary">• selected</span>
+                          )}
+                        </div>
                         <div className="text-muted-foreground mt-0.5">
                           <span className="tabular-nums text-foreground">{formatMoney(p.total)}</span>
                           {" "}across {p.count} {p.count === 1 ? "expense" : "expenses"}
@@ -551,6 +685,25 @@ export default function Analytics() {
                   stroke="hsl(var(--primary))"
                   strokeWidth={2.5}
                   fill="url(#trendFill)"
+                  dot={(props: { cx?: number; cy?: number; payload?: { inSelected: boolean; key: string } }) => {
+                    const { cx, cy, payload } = props;
+                    if (cx == null || cy == null || !payload) {
+                      return <g key={`empty-${Math.random()}`} />;
+                    }
+                    const isSel = payload.inSelected;
+                    return (
+                      <circle
+                        key={payload.key}
+                        cx={cx}
+                        cy={cy}
+                        r={isSel ? 5 : 3}
+                        fill={isSel ? "hsl(var(--primary))" : "hsl(var(--muted-foreground) / 0.4)"}
+                        stroke="hsl(var(--card))"
+                        strokeWidth={2}
+                      />
+                    );
+                  }}
+                  activeDot={{ r: 6, fill: "hsl(var(--primary))" }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -558,126 +711,89 @@ export default function Analytics() {
         </div>
       </Card>
 
-      {/* Category bars */}
-      <Card className="rounded-3xl border-0 shadow-soft p-6 bg-card">
-        <h2 className="font-display text-xl mb-1">Categories this month</h2>
-        <p className="text-xs text-muted-foreground mb-4">
-          Soft view of where your money flowed (in USD).
-        </p>
-        <div className="h-80">
-          {thisMonthCats.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-              No expenses this month
+      {/* Spending breakdown — pie + bars side by side for selected period */}
+      {hasPeriodData && periodCats.length > 0 && (
+        <Card className="rounded-3xl border-0 shadow-soft p-6 bg-card">
+          <h2 className="font-display text-xl mb-1">
+            Spending breakdown · {periodTitle.toLowerCase()}
+          </h2>
+          <p className="text-xs text-muted-foreground mb-4">
+            How {periodLabel === "all time" ? "all your spending" : "this period"} splits across categories.
+          </p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+            {/* Pie */}
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={periodCats}
+                    dataKey="amount"
+                    nameKey="category"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={105}
+                    paddingAngle={2}
+                    stroke="hsl(var(--card))"
+                    strokeWidth={3}
+                  >
+                    {periodCats.map((entry) => (
+                      <Cell key={entry.category} fill={`hsl(var(--${entry.meta.token}))`} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null;
+                      const p = payload[0].payload as {
+                        category: string;
+                        amount: number;
+                        meta: { emoji: string; key: string };
+                      };
+                      const pct = (p.amount / periodTotal) * 100;
+                      return (
+                        <div className="rounded-2xl bg-popover text-popover-foreground shadow-card px-4 py-2.5 text-xs">
+                          <div className="font-medium">
+                            {p.meta.emoji} {p.meta.key}
+                          </div>
+                          <div className="text-muted-foreground mt-0.5">
+                            <span className="tabular-nums text-foreground">
+                              {formatMoney(p.amount)}
+                            </span>{" "}
+                            · {pct.toFixed(0)}%
+                          </div>
+                        </div>
+                      );
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={thisMonthCats} layout="vertical" margin={{ left: 20, right: 20 }}>
-                <CartesianGrid strokeDasharray="2 6" stroke="hsl(var(--border))" horizontal={false} />
-                <XAxis
-                  type="number"
-                  stroke="hsl(var(--muted-foreground))"
-                  tickLine={false}
-                  axisLine={false}
-                  fontSize={11}
-                  tickFormatter={(v) => formatMoney(v)}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="category"
-                  stroke="hsl(var(--muted-foreground))"
-                  tickLine={false}
-                  axisLine={false}
-                  fontSize={11}
-                  width={140}
-                  tickFormatter={(v) => {
-                    const m = getCategoryMeta(v);
-                    return `${m.emoji}  ${m.key}`;
-                  }}
-                />
-                <Tooltip
-                  cursor={{ fill: "hsl(var(--secondary))", radius: 12 }}
-                  contentStyle={{
-                    borderRadius: 16,
-                    border: "none",
-                    background: "hsl(var(--popover))",
-                    color: "hsl(var(--popover-foreground))",
-                    boxShadow: "var(--shadow-card)",
-                    fontSize: 12,
-                  }}
-                  formatter={(v: number) => formatMoney(v)}
-                />
-                <Bar dataKey="amount" radius={[8, 8, 8, 8]}>
-                  {thisMonthCats.map((entry) => (
-                    <Cell key={entry.category} fill={`hsl(var(--${entry.meta.token}))`} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-      </Card>
 
-      {/* Smart insights */}
-      <Card className="rounded-3xl border-0 shadow-soft p-6 bg-gradient-to-br from-primary-soft to-accent">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-2xl">✨</span>
-          <h2 className="font-display text-xl">Smart insights</h2>
-        </div>
-        <div className="space-y-3 text-sm leading-relaxed text-foreground/90">
-          {insights.topThisMonth ? (
-            <p>
-              This month you spent most on{" "}
-              <span className="font-medium">
-                {getCategoryMeta(insights.topThisMonth[0]).emoji}{" "}
-                {getCategoryMeta(insights.topThisMonth[0]).key}
-              </span>{" "}
-              ({formatMoney(insights.topThisMonth[1])}).
-            </p>
-          ) : (
-            <p className="text-muted-foreground">No spending recorded this month yet.</p>
-          )}
-
-          {insights.pctDelta !== null && (
-            <p>
-              Compared to last month, spending is{" "}
-              <span
-                className={cn(
-                  "font-medium",
-                  insights.pctDelta > 0 ? "text-owe" : "text-owed",
-                )}
-              >
-                {insights.pctDelta > 0 ? "up" : "down"} {Math.abs(insights.pctDelta).toFixed(0)}%
-              </span>
-              .
-            </p>
-          )}
-
-          {insights.biggest && (
-            <p>
-              Your biggest single expense was{" "}
-              <span className="font-medium">{insights.biggest.description}</span> at{" "}
-              <span className="tabular-nums">
-                {formatMoney(convert(getMyAmount(insights.biggest), insights.biggest.currency))}
-              </span>
-              {insights.biggest.currency !== "USD" && (
-                <span className="text-muted-foreground">
-                  {" "}(converted from {formatNative(getMyAmount(insights.biggest), insights.biggest.currency)})
-                </span>
-              )}
-              {" "}(your share).
-            </p>
-          )}
-
-          {insights.topTrip && (
-            <p>
-              Your <span className="font-medium">{insights.topTrip[0]}</span> trip cost{" "}
-              <span className="tabular-nums">{formatMoney(insights.topTrip[1].total)}</span>{" "}
-              total across {insights.topTrip[1].count}{" "}
-              {insights.topTrip[1].count === 1 ? "expense" : "expenses"}.
-            </p>
-          )}
-        </div>
-      </Card>
+            {/* Legend with % */}
+            <div className="space-y-2.5">
+              {periodCats.map((c) => {
+                const pct = (c.amount / periodTotal) * 100;
+                return (
+                  <div key={c.category} className="flex items-center gap-3">
+                    <div
+                      className="h-3 w-3 rounded-full shrink-0"
+                      style={{ backgroundColor: `hsl(var(--${c.meta.token}))` }}
+                    />
+                    <div className="flex-1 min-w-0 flex items-center justify-between gap-3">
+                      <span className="text-sm truncate">
+                        {c.meta.emoji} {c.meta.key}
+                      </span>
+                      <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+                        {formatMoney(c.amount)} · {pct.toFixed(0)}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Rockie WhatsApp banner */}
       <Card className="rounded-3xl border-0 shadow-soft p-5 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10">
