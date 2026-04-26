@@ -154,7 +154,6 @@ export default function Analytics() {
         // A month is "in selected period" if any day of it overlaps the active range.
         let inSelected = true;
         if (dateRange !== "all") {
-          // Build active window
           const now = new Date();
           let from: Date | undefined;
           let to: Date | undefined;
@@ -184,7 +183,10 @@ export default function Analytics() {
           count,
           inSelected,
         };
-      });
+      })
+      // Only show months that fall inside the active period.
+      // For "All time" every month is marked inSelected, so nothing is filtered out.
+      .filter((m) => m.inSelected);
   }, [allValidByCategory, convert, dateRange, customFrom, customTo]);
 
   // Categories within the selected period (for the breakdown / pie)
