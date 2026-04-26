@@ -22,9 +22,10 @@ import {
 import { cn } from "@/lib/utils";
 
 
-type DateRangeKey = "this-month" | "last-3" | "this-year" | "all" | "custom";
+type DateRangeKey = "this-month" | "last-month" | "last-3" | "this-year" | "all" | "custom";
 const DATE_RANGES: { key: DateRangeKey; label: string }[] = [
   { key: "this-month", label: "This month" },
+  { key: "last-month", label: "Last month" },
   { key: "last-3", label: "Last 3 months" },
   { key: "this-year", label: "This year" },
   { key: "all", label: "All time" },
@@ -37,6 +38,10 @@ function inDateRange(iso: string, range: DateRangeKey, from?: Date, to?: Date) {
   const now = new Date();
   if (range === "this-month") {
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }
+  if (range === "last-month") {
+    const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
   }
   if (range === "this-year") {
     return d.getFullYear() === now.getFullYear();
@@ -163,11 +168,40 @@ export default function Analytics() {
 
   // Stats
   const topCat = thisMonthCats[0];
-  const lastTwo = byMonth.slice(-2);
-  const trend =
-    lastTwo.length === 2 && lastTwo[0].total > 0
-      ? ((lastTwo[1].total - lastTwo[0].total) / lastTwo[0].total) * 100
-      : 0;
+
+  // Proportional "vs last month": compare same-window day-of-month range.
+  // If today is April 15, compare Apr 1–15 vs Mar 1–15. If month is over, full vs full.
+  const { trend, trendIsPartial } = useMemo(() => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = now.getMonth();
+    const lastDayThisMonth = new Date(y, m + 1, 0).getDate();
+    const isCurrentMonthOver = now.getDate() >= lastDayThisMonth;
+    const cutoffDay = isCurrentMonthOver ? lastDayThisMonth : now.getDate();
+
+    const sumWindow = (year: number, month: number, dayCap: number) => {
+      const lastDay = new Date(year, month + 1, 0).getDate();
+      const cap = Math.min(dayCap, lastDay);
+      return filtered
+        .filter((e) => {
+          const d = new Date(e.date);
+          return (
+            d.getFullYear() === year &&
+            d.getMonth() === month &&
+            d.getDate() <= cap
+          );
+        })
+        .reduce((a, e) => a + convert(getMyAmount(e), e.currency), 0);
+    };
+
+    const thisTotal = sumWindow(y, m, cutoffDay);
+    const lmDate = new Date(y, m - 1, 1);
+    const lastTotal = sumWindow(lmDate.getFullYear(), lmDate.getMonth(), cutoffDay);
+
+    const t = lastTotal > 0 ? ((thisTotal - lastTotal) / lastTotal) * 100 : 0;
+    return { trend: t, trendIsPartial: !isCurrentMonthOver };
+  }, [filtered, convert]);
+
   const avgMonthly = byMonth.length
     ? byMonth.reduce((a, x) => a + x.total, 0) / byMonth.length
     : 0;
@@ -389,9 +423,11 @@ export default function Analytics() {
             {trend.toFixed(1)}%
           </div>
           <div className="text-xs text-muted-foreground mt-1">
-            {trend > 0
-              ? "a little more than last month — that's ok"
-              : "calmer than last month 🌿"}
+            {trendIsPartial
+              ? `month-to-date vs same days last month`
+              : trend > 0
+                ? "a little more than last month — that's ok"
+                : "calmer than last month 🌿"}
           </div>
         </Card>
       </div>
