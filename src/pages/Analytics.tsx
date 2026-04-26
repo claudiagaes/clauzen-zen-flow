@@ -428,68 +428,94 @@ export default function Analytics() {
         )}
       </div>
 
-      {/* Insights cards */}
+      {/* Smart insight banner */}
+      {smartInsight && (
+        <Card className="rounded-3xl border-0 shadow-soft p-5 bg-gradient-to-br from-primary-soft to-accent">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl leading-none mt-0.5">✨</span>
+            <p className="text-sm sm:text-base leading-relaxed text-foreground/90">
+              Your biggest expense category {periodLabel} is{" "}
+              <span className="font-medium">
+                {smartInsight.top.meta.emoji} {smartInsight.top.meta.key}
+              </span>{" "}
+              at{" "}
+              <span className="tabular-nums font-medium">
+                {formatMoney(smartInsight.top.amount)}
+              </span>{" "}
+              <span className="text-muted-foreground">
+                ({smartInsight.pct.toFixed(0)}% of total)
+              </span>
+              .
+            </p>
+          </div>
+        </Card>
+      )}
+
+      {/* Top stats row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {(() => {
-          const topLabel =
-            dateRange === "this-month"
-              ? "Top this month"
-              : dateRange === "last-month"
-                ? "Top last month"
-                : dateRange === "last-3"
-                  ? "Top · last 3 months"
-                  : dateRange === "this-year"
-                    ? "Top this year"
-                    : dateRange === "all"
-                      ? "Top overall"
-                      : "Top in range";
-          return topCat ? (
-            <Card className="rounded-3xl border-0 shadow-soft p-6 bg-primary-soft">
-              <div className="text-xs text-primary font-medium uppercase tracking-widest">
-                {topLabel}
-              </div>
-              <div className="font-display text-2xl mt-2">
-                {topCat.meta.emoji} {topCat.meta.key}
-              </div>
-              <div className="text-sm text-muted-foreground mt-1 tabular-nums">
-                {formatMoney(topCat.amount)}
-              </div>
-            </Card>
-          ) : (
-            <Card className="rounded-3xl border-0 shadow-soft p-6 bg-primary-soft">
-              <div className="text-xs text-primary font-medium uppercase tracking-widest">
-                {topLabel}
-              </div>
-              <div className="font-display text-2xl mt-2 text-muted-foreground">No data</div>
-            </Card>
-          );
-        })()}
+        {/* Total spent — prominent */}
+        <Card className="rounded-3xl border-0 shadow-soft p-6 bg-primary-soft md:col-span-1">
+          <div className="text-xs text-primary font-medium uppercase tracking-widest">
+            Total spent · {periodTitle.toLowerCase()}
+          </div>
+          <div className="font-display text-4xl md:text-5xl mt-3 tabular-nums leading-none">
+            {formatMoney(periodTotal)}
+          </div>
+          <div className="text-xs text-muted-foreground mt-2">
+            {filtered.length} {filtered.length === 1 ? "expense" : "expenses"}
+            {category !== "all" && ` · ${getCategoryMeta(category).emoji} ${getCategoryMeta(category).key}`}
+          </div>
+        </Card>
+
+        {/* Monthly average */}
         <Card className="rounded-3xl border-0 shadow-soft p-6 bg-secondary">
           <div className="text-xs text-foreground/70 uppercase tracking-widest font-medium">
             Monthly average
           </div>
-          <div className="font-display text-3xl mt-2 tabular-nums">{formatMoney(avgMonthly)}</div>
-          <div className="text-xs text-muted-foreground mt-1">
-            across {byMonth.length} {byMonth.length === 1 ? "month" : "months"} with data
+          <div className="font-display text-3xl mt-3 tabular-nums">
+            {byMonth.length > 0 ? formatMoney(avgMonthly) : "—"}
+          </div>
+          <div className="text-xs text-muted-foreground mt-2">
+            {byMonth.length > 0
+              ? `Based on ${byMonth.length} ${byMonth.length === 1 ? "month" : "months"} of data`
+              : "No months with data yet"}
           </div>
         </Card>
+
+        {/* Vs last month — only when both periods have data */}
         <Card className="rounded-3xl border-0 shadow-soft p-6 bg-accent">
           <div className="text-xs text-accent-foreground uppercase tracking-widest font-medium">
             Vs last month
           </div>
-          <div
-            className={`font-display text-3xl mt-2 tabular-nums ${trend > 0 ? "text-owe" : "text-owed"}`}
-          >
-            {trend > 0 ? "+" : ""}
-            {trend.toFixed(1)}%
-          </div>
-          <div className="text-xs text-muted-foreground mt-1">
-            {trendIsPartial
-              ? `month-to-date vs same days last month`
-              : trend > 0
-                ? "a little more than last month — that's ok"
-                : "calmer than last month 🌿"}
-          </div>
+          {vsLastMonth.available ? (
+            <>
+              <div
+                className={cn(
+                  "font-display text-3xl mt-3 tabular-nums",
+                  vsLastMonth.pct > 0 ? "text-owe" : "text-owed",
+                )}
+              >
+                {vsLastMonth.pct > 0 ? "+" : ""}
+                {vsLastMonth.pct.toFixed(1)}%
+              </div>
+              <div className="text-xs text-muted-foreground mt-2">
+                {vsLastMonth.isPartial
+                  ? "month-to-date vs same days last month"
+                  : vsLastMonth.pct > 0
+                    ? "a little more than last month — that's ok"
+                    : "calmer than last month 🌿"}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="font-display text-2xl mt-3 text-muted-foreground">
+                No previous data
+              </div>
+              <div className="text-xs text-muted-foreground mt-2">
+                Need spending in both months to compare
+              </div>
+            </>
+          )}
         </Card>
       </div>
 
@@ -528,19 +554,80 @@ export default function Analytics() {
         </div>
       </div>
 
-      {/* Trend */}
+      {/* Empty state for the selected period */}
+      {!hasPeriodData && (
+        <Card className="rounded-3xl border-0 shadow-soft p-10 bg-card text-center">
+          <div className="text-4xl mb-3">🧘</div>
+          <p className="text-base text-foreground">No expense data for this period yet</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Try a different range or add an expense to see insights here.
+          </p>
+        </Card>
+      )}
+
+      {/* Monthly trend — always shows ALL months with data, highlights the selected period.
+          Renders bar chart if only 1 month total, line/area otherwise. */}
       <Card className="rounded-3xl border-0 shadow-soft p-6 bg-card">
         <h2 className="font-display text-xl mb-1">
-          Monthly trend{category !== "all" && <span className="text-muted-foreground"> · {category}</span>}
+          Monthly trend
+          {category !== "all" && (
+            <span className="text-muted-foreground"> · {category}</span>
+          )}
         </h2>
         <p className="text-xs text-muted-foreground mb-4">
-          How your spending breathes month to month (in USD).
+          All months with data. Highlighted bars/points are inside your selected period.
         </p>
         <div className="h-72">
           {byMonth.length === 0 ? (
             <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-              No expenses in this scope
+              No expenses yet
             </div>
+          ) : byMonth.length === 1 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={byMonth} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="2 6" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis
+                  dataKey="label"
+                  stroke="hsl(var(--muted-foreground))"
+                  tickLine={false}
+                  axisLine={false}
+                  fontSize={11}
+                />
+                <YAxis
+                  stroke="hsl(var(--muted-foreground))"
+                  tickLine={false}
+                  axisLine={false}
+                  fontSize={11}
+                  tickFormatter={(v) => formatMoney(v)}
+                />
+                <Tooltip
+                  cursor={{ fill: "hsl(var(--secondary))", radius: 12 }}
+                  content={({ active, payload }) => {
+                    if (!active || !payload?.length) return null;
+                    const p = payload[0].payload as { label: string; total: number; count: number };
+                    return (
+                      <div className="rounded-2xl bg-popover text-popover-foreground shadow-card px-4 py-2.5 text-xs">
+                        <div className="font-medium">{p.label}</div>
+                        <div className="text-muted-foreground mt-0.5">
+                          <span className="tabular-nums text-foreground">{formatMoney(p.total)}</span>
+                          {" "}across {p.count} {p.count === 1 ? "expense" : "expenses"}
+                        </div>
+                      </div>
+                    );
+                  }}
+                />
+                <Bar dataKey="total" radius={[10, 10, 10, 10]}>
+                  {byMonth.map((m) => (
+                    <Cell
+                      key={m.key}
+                      fill={
+                        m.inSelected ? "hsl(var(--primary))" : "hsl(var(--muted-foreground) / 0.25)"
+                      }
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={byMonth} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
@@ -568,27 +655,22 @@ export default function Analytics() {
                   tickFormatter={(v) => formatMoney(v)}
                 />
                 <Tooltip
-                  contentStyle={{
-                    borderRadius: 16,
-                    border: "none",
-                    background: "hsl(var(--popover))",
-                    color: "hsl(var(--popover-foreground))",
-                    boxShadow: "var(--shadow-card)",
-                    fontSize: 12,
-                  }}
                   content={({ active, payload }) => {
                     if (!active || !payload?.length) return null;
                     const p = payload[0].payload as {
                       label: string;
                       total: number;
                       count: number;
+                      inSelected: boolean;
                     };
                     return (
-                      <div
-                        className="rounded-2xl bg-popover text-popover-foreground shadow-card px-4 py-2.5 text-xs"
-                        style={{ border: "none" }}
-                      >
-                        <div className="font-medium">{p.label}</div>
+                      <div className="rounded-2xl bg-popover text-popover-foreground shadow-card px-4 py-2.5 text-xs">
+                        <div className="font-medium">
+                          {p.label}
+                          {p.inSelected && (
+                            <span className="ml-1.5 text-[10px] text-primary">• selected</span>
+                          )}
+                        </div>
                         <div className="text-muted-foreground mt-0.5">
                           <span className="tabular-nums text-foreground">{formatMoney(p.total)}</span>
                           {" "}across {p.count} {p.count === 1 ? "expense" : "expenses"}
@@ -603,6 +685,25 @@ export default function Analytics() {
                   stroke="hsl(var(--primary))"
                   strokeWidth={2.5}
                   fill="url(#trendFill)"
+                  dot={(props: { cx?: number; cy?: number; payload?: { inSelected: boolean; key: string } }) => {
+                    const { cx, cy, payload } = props;
+                    if (cx == null || cy == null || !payload) {
+                      return <g key={`empty-${Math.random()}`} />;
+                    }
+                    const isSel = payload.inSelected;
+                    return (
+                      <circle
+                        key={payload.key}
+                        cx={cx}
+                        cy={cy}
+                        r={isSel ? 5 : 3}
+                        fill={isSel ? "hsl(var(--primary))" : "hsl(var(--muted-foreground) / 0.4)"}
+                        stroke="hsl(var(--card))"
+                        strokeWidth={2}
+                      />
+                    );
+                  }}
+                  activeDot={{ r: 6, fill: "hsl(var(--primary))" }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -610,126 +711,89 @@ export default function Analytics() {
         </div>
       </Card>
 
-      {/* Category bars */}
-      <Card className="rounded-3xl border-0 shadow-soft p-6 bg-card">
-        <h2 className="font-display text-xl mb-1">Categories this month</h2>
-        <p className="text-xs text-muted-foreground mb-4">
-          Soft view of where your money flowed (in USD).
-        </p>
-        <div className="h-80">
-          {thisMonthCats.length === 0 ? (
-            <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
-              No expenses this month
+      {/* Spending breakdown — pie + bars side by side for selected period */}
+      {hasPeriodData && periodCats.length > 0 && (
+        <Card className="rounded-3xl border-0 shadow-soft p-6 bg-card">
+          <h2 className="font-display text-xl mb-1">
+            Spending breakdown · {periodTitle.toLowerCase()}
+          </h2>
+          <p className="text-xs text-muted-foreground mb-4">
+            How {periodLabel === "all time" ? "all your spending" : "this period"} splits across categories.
+          </p>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+            {/* Pie */}
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={periodCats}
+                    dataKey="amount"
+                    nameKey="category"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={105}
+                    paddingAngle={2}
+                    stroke="hsl(var(--card))"
+                    strokeWidth={3}
+                  >
+                    {periodCats.map((entry) => (
+                      <Cell key={entry.category} fill={`hsl(var(--${entry.meta.token}))`} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (!active || !payload?.length) return null;
+                      const p = payload[0].payload as {
+                        category: string;
+                        amount: number;
+                        meta: { emoji: string; key: string };
+                      };
+                      const pct = (p.amount / periodTotal) * 100;
+                      return (
+                        <div className="rounded-2xl bg-popover text-popover-foreground shadow-card px-4 py-2.5 text-xs">
+                          <div className="font-medium">
+                            {p.meta.emoji} {p.meta.key}
+                          </div>
+                          <div className="text-muted-foreground mt-0.5">
+                            <span className="tabular-nums text-foreground">
+                              {formatMoney(p.amount)}
+                            </span>{" "}
+                            · {pct.toFixed(0)}%
+                          </div>
+                        </div>
+                      );
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
             </div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={thisMonthCats} layout="vertical" margin={{ left: 20, right: 20 }}>
-                <CartesianGrid strokeDasharray="2 6" stroke="hsl(var(--border))" horizontal={false} />
-                <XAxis
-                  type="number"
-                  stroke="hsl(var(--muted-foreground))"
-                  tickLine={false}
-                  axisLine={false}
-                  fontSize={11}
-                  tickFormatter={(v) => formatMoney(v)}
-                />
-                <YAxis
-                  type="category"
-                  dataKey="category"
-                  stroke="hsl(var(--muted-foreground))"
-                  tickLine={false}
-                  axisLine={false}
-                  fontSize={11}
-                  width={140}
-                  tickFormatter={(v) => {
-                    const m = getCategoryMeta(v);
-                    return `${m.emoji}  ${m.key}`;
-                  }}
-                />
-                <Tooltip
-                  cursor={{ fill: "hsl(var(--secondary))", radius: 12 }}
-                  contentStyle={{
-                    borderRadius: 16,
-                    border: "none",
-                    background: "hsl(var(--popover))",
-                    color: "hsl(var(--popover-foreground))",
-                    boxShadow: "var(--shadow-card)",
-                    fontSize: 12,
-                  }}
-                  formatter={(v: number) => formatMoney(v)}
-                />
-                <Bar dataKey="amount" radius={[8, 8, 8, 8]}>
-                  {thisMonthCats.map((entry) => (
-                    <Cell key={entry.category} fill={`hsl(var(--${entry.meta.token}))`} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </div>
-      </Card>
 
-      {/* Smart insights */}
-      <Card className="rounded-3xl border-0 shadow-soft p-6 bg-gradient-to-br from-primary-soft to-accent">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-2xl">✨</span>
-          <h2 className="font-display text-xl">Smart insights</h2>
-        </div>
-        <div className="space-y-3 text-sm leading-relaxed text-foreground/90">
-          {insights.topThisMonth ? (
-            <p>
-              This month you spent most on{" "}
-              <span className="font-medium">
-                {getCategoryMeta(insights.topThisMonth[0]).emoji}{" "}
-                {getCategoryMeta(insights.topThisMonth[0]).key}
-              </span>{" "}
-              ({formatMoney(insights.topThisMonth[1])}).
-            </p>
-          ) : (
-            <p className="text-muted-foreground">No spending recorded this month yet.</p>
-          )}
-
-          {insights.pctDelta !== null && (
-            <p>
-              Compared to last month, spending is{" "}
-              <span
-                className={cn(
-                  "font-medium",
-                  insights.pctDelta > 0 ? "text-owe" : "text-owed",
-                )}
-              >
-                {insights.pctDelta > 0 ? "up" : "down"} {Math.abs(insights.pctDelta).toFixed(0)}%
-              </span>
-              .
-            </p>
-          )}
-
-          {insights.biggest && (
-            <p>
-              Your biggest single expense was{" "}
-              <span className="font-medium">{insights.biggest.description}</span> at{" "}
-              <span className="tabular-nums">
-                {formatMoney(convert(getMyAmount(insights.biggest), insights.biggest.currency))}
-              </span>
-              {insights.biggest.currency !== "USD" && (
-                <span className="text-muted-foreground">
-                  {" "}(converted from {formatNative(getMyAmount(insights.biggest), insights.biggest.currency)})
-                </span>
-              )}
-              {" "}(your share).
-            </p>
-          )}
-
-          {insights.topTrip && (
-            <p>
-              Your <span className="font-medium">{insights.topTrip[0]}</span> trip cost{" "}
-              <span className="tabular-nums">{formatMoney(insights.topTrip[1].total)}</span>{" "}
-              total across {insights.topTrip[1].count}{" "}
-              {insights.topTrip[1].count === 1 ? "expense" : "expenses"}.
-            </p>
-          )}
-        </div>
-      </Card>
+            {/* Legend with % */}
+            <div className="space-y-2.5">
+              {periodCats.map((c) => {
+                const pct = (c.amount / periodTotal) * 100;
+                return (
+                  <div key={c.category} className="flex items-center gap-3">
+                    <div
+                      className="h-3 w-3 rounded-full shrink-0"
+                      style={{ backgroundColor: `hsl(var(--${c.meta.token}))` }}
+                    />
+                    <div className="flex-1 min-w-0 flex items-center justify-between gap-3">
+                      <span className="text-sm truncate">
+                        {c.meta.emoji} {c.meta.key}
+                      </span>
+                      <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+                        {formatMoney(c.amount)} · {pct.toFixed(0)}%
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Rockie WhatsApp banner */}
       <Card className="rounded-3xl border-0 shadow-soft p-5 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10">
