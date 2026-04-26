@@ -536,29 +536,29 @@ export default function Analytics() {
           </div>
         </Card>
 
-        {/* Vs last month — only when both periods have data */}
+        {/* Vs previous period — adapts to the active date range */}
         <Card className="rounded-3xl border-0 shadow-soft p-6 bg-accent">
           <div className="text-xs text-accent-foreground uppercase tracking-widest font-medium">
-            Vs last month
+            {dateRange === "this-month"
+              ? "Vs last month"
+              : dateRange === "last-month"
+                ? "Vs the month before"
+                : dateRange === "this-year"
+                  ? "Vs last year"
+                  : "Vs previous period"}
           </div>
-          {vsLastMonth.available ? (
+          {vsPrevious.available ? (
             <>
               <div
                 className={cn(
                   "font-display text-3xl mt-3 tabular-nums",
-                  vsLastMonth.pct > 0 ? "text-owe" : "text-owed",
+                  vsPrevious.pct > 0 ? "text-owe" : "text-owed",
                 )}
               >
-                {vsLastMonth.pct > 0 ? "+" : ""}
-                {vsLastMonth.pct.toFixed(1)}%
+                {vsPrevious.pct > 0 ? "+" : ""}
+                {vsPrevious.pct.toFixed(1)}%
               </div>
-              <div className="text-xs text-muted-foreground mt-2">
-                {vsLastMonth.isPartial
-                  ? "month-to-date vs same days last month"
-                  : vsLastMonth.pct > 0
-                    ? "a little more than last month — that's ok"
-                    : "calmer than last month 🌿"}
-              </div>
+              <div className="text-xs text-muted-foreground mt-2">{vsPrevious.label}</div>
             </>
           ) : (
             <>
@@ -566,7 +566,9 @@ export default function Analytics() {
                 No previous data
               </div>
               <div className="text-xs text-muted-foreground mt-2">
-                Need spending in both months to compare
+                {dateRange === "all"
+                  ? "All-time view has no prior period"
+                  : "Need spending in both periods to compare"}
               </div>
             </>
           )}
