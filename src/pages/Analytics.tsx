@@ -352,6 +352,262 @@ export default function Analytics() {
 
   const hasPeriodData = periodTotal > 0 && filtered.length > 0;
 
+  // ─── Smart Insights cards ────────────────────────────────────────────────
+  // Build a list of insight cards from real data. Only the ones with valid data render.
+  type InsightCard = {
+    id: string;
+    emoji: string;
+    headline: string;
+    detail: string;
+    tone: "primary" | "secondary" | "accent" | "owe" | "owed";
+  };
+  const smartInsights = useMemo<InsightCard[]>(() => {
+    if (!hasPeriodData) return [];
+    const cards: InsightCard[] = [];
+
+    // 🍽️ Top category
+    if (periodCats.length && periodTotal > 0) {
+      const top = periodCats[0];
+      const pct = (top.amount / periodTotal) * 100;
+      cards.push({
+        id: "top-category",
+        emoji: top.meta.emoji,
+        headline: `Top category: ${top.meta.key}`,
+        detail: `You spent ${formatMoney(top.amount)} on ${top.meta.key} ${periodLabel} — ${pct.toFixed(0)}% of your total.`,
+        tone: "primary",
+      });
+    }
+
+    // 📈/📉 Biggest jump & drop vs last calendar month — by category.
+    // Only when both this month and last month have data.
+    {
+      const now = new Date();
+      const tmY = now.getFullYear();
+      const tmM = now.getMonth();
+      const lmDate = new Date(tmY, tmM - 1, 1);
+      const lmY = lmDate.getFullYear();
+      const lmM = lmDate.getMonth();
+
+      const sumByCat = (year: number, month: number) => {
+        const m = new Map<string, number>();
+        for (const e of allValidByCategory) {
+          const d = new Date(e.date);
+          if (d.getFullYear() === year && d.getMonth() === month) {
+            m.set(e.category, (m.get(e.category) ?? 0) + convert(getMyAmount(e), e.currency));
+          }
+        }
+        return m;
+      };
+      const cur = sumByCat(tmY, tmM);
+      const prev = sumByCat(lmY, lmM);
+
+      if (cur.size > 0 && prev.size > 0) {
+        // Categories present in BOTH months → meaningful % change
+        const deltas: { cat: string; pct: number }[] = [];
+        cur.forEach((curAmt, cat) => {
+          const prevAmt = prev.get(cat);
+          if (prevAmt && prevAmt > 0 && curAmt > 0) {
+            deltas.push({ cat, pct: ((curAmt - prevAmt) / prevAmt) * 100 });
+          }
+        });
+        if (deltas.length) {
+          const jump = [...deltas].sort((a, b) => b.pct - a.pct)[0];
+          if (jump && jump.pct > 0) {
+            const meta = getCategoryMeta(jump.cat);
+            cards.push({
+              id: "biggest-jump",
+              emoji: "📈",
+              headline: `Biggest jump: ${meta.key}`,
+              detail: `You spent ${jump.pct.toFixed(0)}% more on ${meta.emoji} ${meta.key} this month vs last month.`,
+              tone: "owe",
+            });
+          }
+          const drop = [...deltas].sort((a, b) => a.pct - b.pct)[0];
+          if (drop && drop.pct < 0) {
+            const meta = getCategoryMeta(drop.cat);
+            cards.push({
+              id: "biggest-drop",
+              emoji: "📉",
+              headline: `Biggest drop: ${meta.key}`,
+              detail: `You spent ${Math.abs(drop.pct).toFixed(0)}% less on ${meta.emoji} ${meta.key} this month vs last month.`,
+              tone: "owed",
+            });
+          }
+        }
+      }
+    }
+
+    // 🏆 Most expensive day in the period
+    {
+      const byDay = new Map<string, { total: number; count: number }>();
+      for (const e of filtered) {
+        const d = new Date(e.date);
+        const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        const cur = byDay.get(k) ?? { total: 0, count: 0 };
+        cur.total += convert(getMyAmount(e), e.currency);
+        cur.count += 1;
+        byDay.set(k, cur);
+      }
+      const top = Array.from(byDay.entries()).sort((a, b) => b[1].total - a[1].total)[0];
+      if (top && top[1].total > 0) {
+        const [y, m, d] = top[0].split("-").map(Number);
+        const dateLabel = new Date(y, m - 1, d).toLocaleDateString("en-US", {
+          weekday: "short",
+          month: "short",
+          day: "numeric",
+        });
+        cards.push({
+          id: "biggest-day",
+          emoji: "🏆",
+          headline: "Most expensive day",
+          detail: `Your biggest spending day was ${dateLabel} — ${formatMoney(top[1].total)} across ${top[1].count} ${top[1].count === 1 ? "expense" : "expenses"}.`,
+          tone: "accent",
+        });
+      }
+    }
+
+    // 💸 Biggest single expense
+    {
+      const biggest = [...filtered].sort(
+        (a, b) => convert(getMyAmount(b), b.currency) - convert(getMyAmount(a), a.currency),
+      )[0];
+      if (biggest) {
+        const amt = convert(getMyAmount(biggest), biggest.currency);
+        const dateLabel = new Date(biggest.date).toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        });
+        cards.push({
+          id: "biggest-expense",
+          emoji: "💸",
+          headline: "Biggest single expense",
+          detail: `Your largest expense was "${biggest.description}" at ${formatMoney(amt)} on ${dateLabel}.`,
+          tone: "secondary",
+        });
+      }
+    }
+
+    // ✈️ Top trip / event_tag in the period
+    {
+      const tripMap = new Map<string, { total: number; count: number }>();
+      for (const e of filtered) {
+        if (!e.event_tag) continue;
+        const cur = tripMap.get(e.event_tag) ?? { total: 0, count: 0 };
+        cur.total += convert(getMyAmount(e), e.currency);
+        cur.count += 1;
+        tripMap.set(e.event_tag, cur);
+      }
+      const topTrip = Array.from(tripMap.entries()).sort((a, b) => b[1].total - a[1].total)[0];
+      if (topTrip && topTrip[1].total > 0 && periodTotal > 0) {
+        const pct = (topTrip[1].total / periodTotal) * 100;
+        cards.push({
+          id: "top-trip",
+          emoji: "✈️",
+          headline: `Trip spending: ${topTrip[0]}`,
+          detail: `Your ${topTrip[0]} trip accounts for ${formatMoney(topTrip[1].total)} this period (${pct.toFixed(0)}% of total).`,
+          tone: "primary",
+        });
+      }
+    }
+
+    // 🔄 Recurring weekly pattern within the current calendar month
+    {
+      const now = new Date();
+      const monthExpenses = filtered.filter((e) => {
+        const d = new Date(e.date);
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      });
+      if (monthExpenses.length >= 4) {
+        // Count distinct ISO weeks per category
+        const isoWeek = (d: Date) => {
+          const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+          const day = t.getUTCDay() || 7;
+          t.setUTCDate(t.getUTCDate() + 4 - day);
+          const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+          return Math.ceil(((t.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+        };
+        const totalWeeks = new Set(monthExpenses.map((e) => isoWeek(new Date(e.date)))).size;
+        if (totalWeeks >= 2) {
+          const catWeeks = new Map<string, Set<number>>();
+          for (const e of monthExpenses) {
+            const w = isoWeek(new Date(e.date));
+            if (!catWeeks.has(e.category)) catWeeks.set(e.category, new Set());
+            catWeeks.get(e.category)!.add(w);
+          }
+          // Find a category present in EVERY week of the month so far
+          const recurring = Array.from(catWeeks.entries()).find(
+            ([, weeks]) => weeks.size === totalWeeks,
+          );
+          if (recurring) {
+            const meta = getCategoryMeta(recurring[0]);
+            cards.push({
+              id: "recurring",
+              emoji: "🔄",
+              headline: "Recurring pattern",
+              detail: `You've spent on ${meta.emoji} ${meta.key} every week this month.`,
+              tone: "secondary",
+            });
+          }
+        }
+      }
+    }
+
+    // 💡 Saving opportunity — category in current month X% above its 3-month average
+    {
+      const now = new Date();
+      const tmY = now.getFullYear();
+      const tmM = now.getMonth();
+
+      // Sum per category for current calendar month
+      const curMonth = new Map<string, number>();
+      for (const e of allValidByCategory) {
+        const d = new Date(e.date);
+        if (d.getFullYear() === tmY && d.getMonth() === tmM) {
+          curMonth.set(e.category, (curMonth.get(e.category) ?? 0) + convert(getMyAmount(e), e.currency));
+        }
+      }
+
+      // 3-month rolling average BEFORE current month, per category
+      const cutoffStart = new Date(tmY, tmM - 3, 1);
+      const cutoffEnd = new Date(tmY, tmM, 0, 23, 59, 59);
+      const prevTotals = new Map<string, number>();
+      for (const e of allValidByCategory) {
+        const d = new Date(e.date);
+        if (d >= cutoffStart && d <= cutoffEnd) {
+          prevTotals.set(e.category, (prevTotals.get(e.category) ?? 0) + convert(getMyAmount(e), e.currency));
+        }
+      }
+
+      let best: { cat: string; cur: number; avg: number; pct: number } | null = null;
+      curMonth.forEach((curAmt, cat) => {
+        const prevSum = prevTotals.get(cat) ?? 0;
+        const avg = prevSum / 3;
+        if (avg > 5 && curAmt > avg) {
+          const pct = ((curAmt - avg) / avg) * 100;
+          if (pct >= 25 && (!best || pct > best.pct)) {
+            best = { cat, cur: curAmt, avg, pct };
+          }
+        }
+      });
+      if (best) {
+        const b = best as { cat: string; cur: number; avg: number; pct: number };
+        const meta = getCategoryMeta(b.cat);
+        cards.push({
+          id: "saving-opportunity",
+          emoji: "💡",
+          headline: `Saving opportunity: ${meta.key}`,
+          detail: `You spent ${formatMoney(b.cur)} on ${meta.emoji} ${meta.key} — ${b.pct.toFixed(0)}% above your 3-month average.`,
+          tone: "owe",
+        });
+      }
+    }
+
+    return cards;
+  }, [hasPeriodData, periodCats, periodTotal, periodLabel, filtered, allValidByCategory, convert, formatMoney]);
+  // ─── /Smart Insights ─────────────────────────────────────────────────────
+
+
   return (
     <div className="space-y-8 pt-4 fade-in">
       <header className="flex flex-wrap items-start justify-between gap-4">
