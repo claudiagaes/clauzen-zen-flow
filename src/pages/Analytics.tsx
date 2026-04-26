@@ -633,7 +633,9 @@ export default function Analytics() {
           )}
         </h2>
         <p className="text-xs text-muted-foreground mb-4">
-          All months with data. Highlighted bars/points are inside your selected period.
+          {dateRange === "all"
+            ? "All months with data."
+            : `Months in your selected period (${periodTitle.toLowerCase()}).`}
         </p>
         <div className="h-72">
           {byMonth.length === 0 ? (
