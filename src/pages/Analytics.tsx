@@ -69,7 +69,7 @@ export default function Analytics() {
   const [customOpen, setCustomOpen] = useState(false);
   const [draftFrom, setDraftFrom] = useState<Date | undefined>();
   const [draftTo, setDraftTo] = useState<Date | undefined>();
-  const { display, format: formatMoney, formatNative, convert } = useCurrency();
+  const { display, format: formatMoney, convert } = useCurrency();
 
   // When opening the picker, seed drafts with the currently applied range
   useEffect(() => {
