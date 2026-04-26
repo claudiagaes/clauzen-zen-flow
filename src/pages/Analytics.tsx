@@ -14,6 +14,8 @@ import {
   BarChart,
   CartesianGrid,
   Cell,
+  Pie,
+  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
