@@ -45,7 +45,13 @@ export default function Overview() {
       .sort((a, b) => b.amount - a.amount);
   }, [filteredExpenses, convert]);
 
-  const recent = filteredExpenses.slice(0, 6);
+  // Skip rows with no real spend (e.g., zero-amount Splitwise balance entries)
+  const recent = filteredExpenses
+    .filter((e) => {
+      const my = getMyAmount(e);
+      return (my ?? 0) > 0 || (e.total_amount ?? 0) > 0;
+    })
+    .slice(0, 6);
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Hey" : "Good evening";
