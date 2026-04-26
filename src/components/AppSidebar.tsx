@@ -45,7 +45,7 @@ export function AppSidebar() {
         <SidebarGroup>
           {!collapsed && (
             <SidebarGroupLabel className="text-[10px] uppercase tracking-widest text-muted-foreground px-3">
-              Dashboard
+              Workspace
             </SidebarGroupLabel>
           )}
           <SidebarGroupContent>
