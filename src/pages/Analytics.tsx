@@ -146,15 +146,10 @@ export default function Analytics() {
       });
   }, [filtered, convert]);
 
-  // Categories in current month within scope (for the bar chart)
+  // Top categories within the current scope (respects the active date range)
   const thisMonthCats = useMemo(() => {
-    const now = new Date();
-    const inMonth = scoped.filter((e) => {
-      const d = new Date(e.date);
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    });
     const m = new Map<string, number>();
-    inMonth.forEach((e) =>
+    scoped.forEach((e) =>
       m.set(e.category, (m.get(e.category) ?? 0) + convert(getMyAmount(e), e.currency)),
     );
     return Array.from(m.entries())
@@ -383,26 +378,40 @@ export default function Analytics() {
 
       {/* Insights cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {topCat ? (
-          <Card className="rounded-3xl border-0 shadow-soft p-6 bg-primary-soft">
-            <div className="text-xs text-primary font-medium uppercase tracking-widest">
-              Top this month
-            </div>
-            <div className="font-display text-2xl mt-2">
-              {topCat.meta.emoji} {topCat.meta.key}
-            </div>
-            <div className="text-sm text-muted-foreground mt-1 tabular-nums">
-              {formatMoney(topCat.amount)}
-            </div>
-          </Card>
-        ) : (
-          <Card className="rounded-3xl border-0 shadow-soft p-6 bg-primary-soft">
-            <div className="text-xs text-primary font-medium uppercase tracking-widest">
-              Top this month
-            </div>
-            <div className="font-display text-2xl mt-2 text-muted-foreground">No data</div>
-          </Card>
-        )}
+        {(() => {
+          const topLabel =
+            dateRange === "this-month"
+              ? "Top this month"
+              : dateRange === "last-month"
+                ? "Top last month"
+                : dateRange === "last-3"
+                  ? "Top · last 3 months"
+                  : dateRange === "this-year"
+                    ? "Top this year"
+                    : dateRange === "all"
+                      ? "Top overall"
+                      : "Top in range";
+          return topCat ? (
+            <Card className="rounded-3xl border-0 shadow-soft p-6 bg-primary-soft">
+              <div className="text-xs text-primary font-medium uppercase tracking-widest">
+                {topLabel}
+              </div>
+              <div className="font-display text-2xl mt-2">
+                {topCat.meta.emoji} {topCat.meta.key}
+              </div>
+              <div className="text-sm text-muted-foreground mt-1 tabular-nums">
+                {formatMoney(topCat.amount)}
+              </div>
+            </Card>
+          ) : (
+            <Card className="rounded-3xl border-0 shadow-soft p-6 bg-primary-soft">
+              <div className="text-xs text-primary font-medium uppercase tracking-widest">
+                {topLabel}
+              </div>
+              <div className="font-display text-2xl mt-2 text-muted-foreground">No data</div>
+            </Card>
+          );
+        })()}
         <Card className="rounded-3xl border-0 shadow-soft p-6 bg-secondary">
           <div className="text-xs text-foreground/70 uppercase tracking-widest font-medium">
             Monthly average
