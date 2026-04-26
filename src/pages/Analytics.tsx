@@ -423,9 +423,11 @@ export default function Analytics() {
             {trend.toFixed(1)}%
           </div>
           <div className="text-xs text-muted-foreground mt-1">
-            {trend > 0
-              ? "a little more than last month — that's ok"
-              : "calmer than last month 🌿"}
+            {trendIsPartial
+              ? `month-to-date vs same days last month`
+              : trend > 0
+                ? "a little more than last month — that's ok"
+                : "calmer than last month 🌿"}
           </div>
         </Card>
       </div>
