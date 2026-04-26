@@ -1111,6 +1111,53 @@ export default function Analytics() {
         </Card>
       )}
 
+      {/* Smart Insights — generated dynamically from real data */}
+      {hasPeriodData && (
+        <section className="space-y-4">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="font-display text-2xl">Smart insights</h2>
+            <span className="text-xs text-muted-foreground">{periodTitle}</span>
+          </div>
+
+          {smartInsights.length >= 3 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {smartInsights.map((card) => {
+                const bgByTone: Record<typeof card.tone, string> = {
+                  primary: "bg-primary-soft",
+                  secondary: "bg-secondary",
+                  accent: "bg-accent",
+                  owe: "bg-[hsl(var(--owe)/0.12)]",
+                  owed: "bg-[hsl(var(--owed)/0.12)]",
+                };
+                return (
+                  <Card
+                    key={card.id}
+                    className={cn(
+                      "rounded-3xl border-0 shadow-soft p-5 transition-transform hover:-translate-y-0.5",
+                      bgByTone[card.tone],
+                    )}
+                  >
+                    <div className="text-3xl leading-none mb-3">{card.emoji}</div>
+                    <div className="font-display text-base text-foreground">{card.headline}</div>
+                    <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed">
+                      {card.detail}
+                    </p>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <Card className="rounded-3xl border-0 shadow-soft p-10 bg-card text-center">
+              <div className="text-4xl mb-3">🧘</div>
+              <p className="text-base text-foreground">Add more expenses to unlock insights</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                A few more entries and we&apos;ll surface patterns, jumps, and savings opportunities.
+              </p>
+            </Card>
+          )}
+        </section>
+      )}
+
       {/* Rockie WhatsApp banner */}
       <Card className="rounded-3xl border-0 shadow-soft p-5 bg-gradient-to-r from-primary/10 via-accent/10 to-primary/10">
         <p className="text-sm sm:text-base text-foreground leading-relaxed">
