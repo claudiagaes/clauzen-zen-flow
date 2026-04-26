@@ -213,39 +213,93 @@ export default function Analytics() {
     ? byMonth.reduce((a, x) => a + x.total, 0) / byMonth.length
     : 0;
 
-  // Vs last month — only meaningful if BOTH this month and last month have data > 0
-  const vsLastMonth = useMemo(() => {
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = now.getMonth();
-    const lastDayThisMonth = new Date(y, m + 1, 0).getDate();
-    const isCurrentMonthOver = now.getDate() >= lastDayThisMonth;
-    const cutoffDay = isCurrentMonthOver ? lastDayThisMonth : now.getDate();
-
-    const sumWindow = (year: number, month: number, dayCap: number) => {
-      const lastDay = new Date(year, month + 1, 0).getDate();
-      const cap = Math.min(dayCap, lastDay);
-      return allValidByCategory
+  // Vs previous period — compares the active selection against the equally-long
+  // window immediately before it. Adapts to whatever date range is active.
+  // - "this-month" → vs last month (same day-of-month cutoff if month not over)
+  // - "last-month" → vs the month before that
+  // - "last-3"     → vs the 3 months before that
+  // - "this-year"  → vs last year
+  // - "custom"     → vs the same number of days right before "from"
+  // - "all"        → not available
+  const vsPrevious = useMemo(() => {
+    const sumRange = (from: Date, to: Date) =>
+      allValidByCategory
         .filter((e) => {
           const d = new Date(e.date);
-          return d.getFullYear() === year && d.getMonth() === month && d.getDate() <= cap;
+          return d >= from && d <= to;
         })
         .reduce((a, e) => a + convert(getMyAmount(e), e.currency), 0);
-    };
 
-    const thisTotal = sumWindow(y, m, cutoffDay);
-    const lmDate = new Date(y, m - 1, 1);
-    const lastTotal = sumWindow(lmDate.getFullYear(), lmDate.getMonth(), cutoffDay);
+    const now = new Date();
+    let curFrom: Date | undefined;
+    let curTo: Date | undefined;
+    let prevFrom: Date | undefined;
+    let prevTo: Date | undefined;
+    let isPartial = false;
+    let label = "vs previous period";
 
-    if (thisTotal <= 0 || lastTotal <= 0) {
-      return { available: false as const };
+    if (dateRange === "this-month") {
+      const y = now.getFullYear();
+      const m = now.getMonth();
+      const lastDay = new Date(y, m + 1, 0).getDate();
+      isPartial = now.getDate() < lastDay;
+      const cutoff = isPartial ? now.getDate() : lastDay;
+      curFrom = new Date(y, m, 1);
+      curTo = new Date(y, m, cutoff, 23, 59, 59);
+      const lmLastDay = new Date(y, m, 0).getDate();
+      const prevCutoff = Math.min(cutoff, lmLastDay);
+      prevFrom = new Date(y, m - 1, 1);
+      prevTo = new Date(y, m - 1, prevCutoff, 23, 59, 59);
+      label = isPartial ? "month-to-date vs same days last month" : "vs last month";
+    } else if (dateRange === "last-month") {
+      const y = now.getFullYear();
+      const m = now.getMonth();
+      curFrom = new Date(y, m - 1, 1);
+      curTo = new Date(y, m, 0, 23, 59, 59);
+      prevFrom = new Date(y, m - 2, 1);
+      prevTo = new Date(y, m - 1, 0, 23, 59, 59);
+      label = "vs the month before";
+    } else if (dateRange === "last-3") {
+      const y = now.getFullYear();
+      const m = now.getMonth();
+      curFrom = new Date(y, m - 2, 1);
+      curTo = new Date(y, m + 1, 0, 23, 59, 59);
+      prevFrom = new Date(y, m - 5, 1);
+      prevTo = new Date(y, m - 2, 0, 23, 59, 59);
+      label = "vs the previous 3 months";
+    } else if (dateRange === "this-year") {
+      const y = now.getFullYear();
+      curFrom = new Date(y, 0, 1);
+      curTo = new Date(y, 11, 31, 23, 59, 59);
+      prevFrom = new Date(y - 1, 0, 1);
+      prevTo = new Date(y - 1, 11, 31, 23, 59, 59);
+      label = "vs last year";
+    } else if (dateRange === "custom" && customFrom && customTo) {
+      curFrom = new Date(customFrom);
+      curFrom.setHours(0, 0, 0, 0);
+      curTo = new Date(customTo);
+      curTo.setHours(23, 59, 59, 999);
+      const ms = curTo.getTime() - curFrom.getTime();
+      prevTo = new Date(curFrom.getTime() - 1);
+      prevFrom = new Date(prevTo.getTime() - ms);
+      label = "vs the previous range";
+    } else {
+      return { available: false as const, label: "vs previous period" };
+    }
+
+    const curTotal = sumRange(curFrom, curTo);
+    const prevTotal = sumRange(prevFrom, prevTo);
+
+    if (curTotal <= 0 || prevTotal <= 0) {
+      return { available: false as const, label };
     }
     return {
       available: true as const,
-      pct: ((thisTotal - lastTotal) / lastTotal) * 100,
-      isPartial: !isCurrentMonthOver,
+      pct: ((curTotal - prevTotal) / prevTotal) * 100,
+      isPartial,
+      label,
     };
-  }, [allValidByCategory, convert]);
+  }, [dateRange, customFrom, customTo, allValidByCategory, convert]);
 
   // Smart insight — top category in current period vs the period total
   const smartInsight = useMemo(() => {
@@ -482,29 +536,29 @@ export default function Analytics() {
           </div>
         </Card>
 
-        {/* Vs last month — only when both periods have data */}
+        {/* Vs previous period — adapts to the active date range */}
         <Card className="rounded-3xl border-0 shadow-soft p-6 bg-accent">
           <div className="text-xs text-accent-foreground uppercase tracking-widest font-medium">
-            Vs last month
+            {dateRange === "this-month"
+              ? "Vs last month"
+              : dateRange === "last-month"
+                ? "Vs the month before"
+                : dateRange === "this-year"
+                  ? "Vs last year"
+                  : "Vs previous period"}
           </div>
-          {vsLastMonth.available ? (
+          {vsPrevious.available ? (
             <>
               <div
                 className={cn(
                   "font-display text-3xl mt-3 tabular-nums",
-                  vsLastMonth.pct > 0 ? "text-owe" : "text-owed",
+                  vsPrevious.pct > 0 ? "text-owe" : "text-owed",
                 )}
               >
-                {vsLastMonth.pct > 0 ? "+" : ""}
-                {vsLastMonth.pct.toFixed(1)}%
+                {vsPrevious.pct > 0 ? "+" : ""}
+                {vsPrevious.pct.toFixed(1)}%
               </div>
-              <div className="text-xs text-muted-foreground mt-2">
-                {vsLastMonth.isPartial
-                  ? "month-to-date vs same days last month"
-                  : vsLastMonth.pct > 0
-                    ? "a little more than last month — that's ok"
-                    : "calmer than last month 🌿"}
-              </div>
+              <div className="text-xs text-muted-foreground mt-2">{vsPrevious.label}</div>
             </>
           ) : (
             <>
@@ -512,7 +566,9 @@ export default function Analytics() {
                 No previous data
               </div>
               <div className="text-xs text-muted-foreground mt-2">
-                Need spending in both months to compare
+                {dateRange === "all"
+                  ? "All-time view has no prior period"
+                  : "Need spending in both periods to compare"}
               </div>
             </>
           )}
