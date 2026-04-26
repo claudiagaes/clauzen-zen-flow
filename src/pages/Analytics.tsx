@@ -98,7 +98,8 @@ export default function Analytics() {
       all.filter(
         (e) =>
           inDateRange(e.date, dateRange, customFrom, customTo) &&
-          getMyAmount(e) > 0.001,
+          e.my_amount != null &&
+          e.my_amount > 0,
       ),
     [all, dateRange, customFrom, customTo],
   );
