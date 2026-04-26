@@ -22,9 +22,10 @@ import {
 import { cn } from "@/lib/utils";
 
 
-type DateRangeKey = "this-month" | "last-3" | "this-year" | "all" | "custom";
+type DateRangeKey = "this-month" | "last-month" | "last-3" | "this-year" | "all" | "custom";
 const DATE_RANGES: { key: DateRangeKey; label: string }[] = [
   { key: "this-month", label: "This month" },
+  { key: "last-month", label: "Last month" },
   { key: "last-3", label: "Last 3 months" },
   { key: "this-year", label: "This year" },
   { key: "all", label: "All time" },
@@ -37,6 +38,10 @@ function inDateRange(iso: string, range: DateRangeKey, from?: Date, to?: Date) {
   const now = new Date();
   if (range === "this-month") {
     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  }
+  if (range === "last-month") {
+    const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear();
   }
   if (range === "this-year") {
     return d.getFullYear() === now.getFullYear();
