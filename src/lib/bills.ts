@@ -36,7 +36,8 @@ export interface BillPayment {
   bill_id: string;
   amount_paid: number | null;
   paid_date: string; // ISO date
-  expected_due_date: string | null;
+  due_date: string | null; // expected due date this payment satisfies
+  currency: BillCurrency | null;
   status: string;
   notes: string | null;
   created_at: string;
@@ -124,9 +125,9 @@ export function isBillPaidForDueDate(
     (p) =>
       p.bill_id === billId &&
       p.status === "paid" &&
-      (p.expected_due_date === target ||
+      (p.due_date === target ||
         // fallback: paid within ±15 days of expected due date counts as paid
-        (p.expected_due_date == null &&
+        (p.due_date == null &&
           Math.abs(daysUntil(new Date(p.paid_date + "T00:00:00"), expectedDue)) <= 15)),
   );
 }
@@ -184,14 +185,17 @@ export async function createBill(input: NewBillInput): Promise<Bill | null> {
 export async function markBillPaid(args: {
   bill_id: string;
   amount_paid: number | null;
-  expected_due_date: string | null;
+  due_date: string | null;
+  paid_date?: string | null;
+  currency?: BillCurrency | null;
   notes?: string | null;
 }): Promise<BillPayment | null> {
   const payload = {
     bill_id: args.bill_id,
     amount_paid: args.amount_paid,
-    paid_date: isoDate(new Date()),
-    expected_due_date: args.expected_due_date,
+    paid_date: args.paid_date ?? isoDate(new Date()),
+    due_date: args.due_date,
+    currency: args.currency ?? null,
     status: "paid",
     notes: args.notes ?? null,
   };

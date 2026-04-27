@@ -16,6 +16,7 @@ import {
 import { convertAmount, formatMoney, formatOriginal } from "@/lib/format";
 import { AddBillDialog } from "@/components/AddBillDialog";
 import { MarkBillPaidDialog } from "@/components/MarkBillPaidDialog";
+import { CreditCardsSection } from "@/components/CreditCardsSection";
 import { Check, Plus } from "lucide-react";
 
 interface ResolvedBill {
@@ -147,6 +148,9 @@ export default function Bills() {
           </div>
         </Card>
       </div>
+
+      {/* Credit Cards section */}
+      {!loading && <CreditCardsSection bills={bills} payments={payments} />}
 
       {/* Sections */}
       {loading ? (
