@@ -150,9 +150,9 @@ export function CreditCardsSection({ bills, payments }: Props) {
     });
   }, [ccBills, ccPayments]);
 
-  if (ccBills.length === 0) return null;
-
   const [drawerCard, setDrawerCard] = useState<CardData | null>(null);
+
+  if (ccBills.length === 0) return null;
 
   return (
     <section className="space-y-4 rise-in">
