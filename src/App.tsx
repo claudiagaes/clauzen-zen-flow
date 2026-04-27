@@ -10,6 +10,7 @@ import Expenses from "./pages/Expenses";
 import People from "./pages/People";
 import Trips from "./pages/Trips";
 import Analytics from "./pages/Analytics";
+import Bills from "./pages/Bills";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -28,6 +29,7 @@ const App = () => (
               <Route path="/people" element={<People />} />
               <Route path="/trips" element={<Trips />} />
               <Route path="/analytics" element={<Analytics />} />
+              <Route path="/bills" element={<Bills />} />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

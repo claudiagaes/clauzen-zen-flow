@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { Home, Receipt, Users, MapPin, BarChart3 } from "lucide-react";
+import { Home, Receipt, Users, MapPin, BarChart3, CalendarClock } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -18,6 +18,7 @@ const items = [
   { title: "Expenses", url: "/expenses", icon: Receipt },
   { title: "People", url: "/people", icon: Users },
   { title: "Trips & Events", url: "/trips", icon: MapPin },
+  { title: "Bills & Deadlines", url: "/bills", icon: CalendarClock },
   { title: "Analytics", url: "/analytics", icon: BarChart3 },
 ];
 
