@@ -771,7 +771,7 @@ export default function Analytics() {
             Total spent · {periodTitle.toLowerCase()}
           </div>
           <div className="font-display text-4xl md:text-5xl mt-3 tabular-nums leading-none">
-            {formatMoney(periodTotal)}
+            {formatMoney(Math.round(periodTotal))}
           </div>
           <div className="text-xs text-muted-foreground mt-2">
             {filtered.length} {filtered.length === 1 ? "expense" : "expenses"}
