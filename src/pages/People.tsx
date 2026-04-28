@@ -17,6 +17,8 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { ArrowDownLeft, ArrowUpRight, Bell, ChevronDown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { SourceBadge } from "@/components/SourceBadge";
+import { getExpenseSource } from "@/lib/data";
 
 const ME = "Claudia";
 
@@ -81,11 +83,28 @@ export default function People() {
     // settled tracks paid amounts for display.
     const map = new Map<
       string,
-      { net: number; theyOwe: number; iOwe: number; pending: number; settled: number }
+      {
+        net: number;
+        theyOwe: number;
+        iOwe: number;
+        pending: number;
+        settled: number;
+        splitwiseOpen: number; // unpaid amount from Splitwise-sourced expenses
+        manualOpen: number; // unpaid amount from manually logged expenses
+      }
     >();
     const expenseById = new Map(expenses.map((e) => [e.id, e]));
     const get = (p: string) => {
-      if (!map.has(p)) map.set(p, { net: 0, theyOwe: 0, iOwe: 0, pending: 0, settled: 0 });
+      if (!map.has(p))
+        map.set(p, {
+          net: 0,
+          theyOwe: 0,
+          iOwe: 0,
+          pending: 0,
+          settled: 0,
+          splitwiseOpen: 0,
+          manualOpen: 0,
+        });
       return map.get(p)!;
     };
     // Direction convention:
@@ -124,6 +143,9 @@ export default function People() {
           b.net += amount;
           b.theyOwe += amount;
         }
+        // Tag unpaid amount by source so we can show a Splitwise vs Manual breakdown.
+        if (getExpenseSource(e) === "splitwise") b.splitwiseOpen += amount;
+        else b.manualOpen += amount;
       }
     }
     return Array.from(map.entries())
