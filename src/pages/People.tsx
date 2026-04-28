@@ -21,6 +21,9 @@ import { SourceBadge } from "@/components/SourceBadge";
 import { getExpenseSource } from "@/lib/data";
 
 const ME = "Claudia";
+/** Case-insensitive check: is this name "me" (Claudia)? Handles "claudia", "CLAUDIA", " Claudia ", etc. */
+const isMe = (name: string | null | undefined) =>
+  !!name && name.trim().toLowerCase() === ME.toLowerCase();
 
 type FilterMode = "all" | "they-owe" | "i-owe";
 
@@ -118,18 +121,18 @@ export default function People() {
       const hasOwePrefix = OWE_PREFIX_RE.test(s.person_name);
       const cleanName = s.person_name.replace(OWE_PREFIX_RE, "").trim();
       // Only relate splits where I am one of the two sides (or it's a tagged balance row).
-      if (!hasOwePrefix && cleanName !== ME && e.paid_by !== ME) continue;
+      if (!hasOwePrefix && !isMe(cleanName) && !isMe(e.paid_by)) continue;
       const other = hasOwePrefix
         ? cleanName
-        : e.paid_by === ME
+        : isMe(e.paid_by)
           ? cleanName
           : e.paid_by;
-      if (other === ME) continue;
+      if (isMe(other)) continue;
       const b = get(other);
       const amount = convert(s.amount_owed, e.currency);
 
       // Determine direction.
-      const iOweThem = hasOwePrefix ? true : e.paid_by !== ME;
+      const iOweThem = hasOwePrefix ? true : !isMe(e.paid_by);
 
       if (s.is_paid) {
         // Paid → already settled; do NOT add to net or open balances.
@@ -190,10 +193,10 @@ export default function People() {
       if (!e) continue;
       const hasOwePrefix = OWE_PREFIX_RE.test(s.person_name);
       const cleanName = s.person_name.replace(OWE_PREFIX_RE, "").trim();
-      if (!hasOwePrefix && cleanName !== ME && e.paid_by !== ME) continue;
-      const other = hasOwePrefix ? cleanName : e.paid_by === ME ? cleanName : e.paid_by;
+      if (!hasOwePrefix && !isMe(cleanName) && !isMe(e.paid_by)) continue;
+      const other = hasOwePrefix ? cleanName : isMe(e.paid_by) ? cleanName : e.paid_by;
       if (other !== selectedPerson) continue;
-      const iOweThem = hasOwePrefix ? true : e.paid_by !== ME;
+      const iOweThem = hasOwePrefix ? true : !isMe(e.paid_by);
       rows.push({
         id: s.id,
         expense_id: s.expense_id,
