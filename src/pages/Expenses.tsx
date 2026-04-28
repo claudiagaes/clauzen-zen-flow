@@ -81,10 +81,15 @@ export default function Expenses() {
     }
   };
 
-  const events = useMemo(
-    () => Array.from(new Set(all.map((e) => e.event_tag).filter(Boolean) as string[])),
-    [all],
-  );
+  // Always-available event tags, even if no expenses currently use them.
+  const PINNED_EVENTS: { value: string; label: string }[] = [
+    { value: "broken-foot", label: "🦶 Broken Foot" },
+  ];
+  const events = useMemo(() => {
+    const fromData = new Set(all.map((e) => e.event_tag).filter(Boolean) as string[]);
+    PINNED_EVENTS.forEach((p) => fromData.add(p.value));
+    return Array.from(fromData);
+  }, [all]);
   const currencies = useMemo(() => Array.from(new Set(all.map((e) => e.currency))), [all]);
 
   const filtered = useMemo(() => {
