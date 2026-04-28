@@ -326,6 +326,20 @@ export default function People() {
                   <span>Pending {format(b.pending)}</span>
                   <span>Settled {format(b.settled)}</span>
                 </div>
+                {(b.splitwiseOpen > 0.005 || b.manualOpen > 0.005) && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    {b.splitwiseOpen > 0.005 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-200">
+                        Splitwise <span className="tabular-nums">{format(b.splitwiseOpen)}</span>
+                      </span>
+                    )}
+                    {b.manualOpen > 0.005 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground">
+                        Manual <span className="tabular-nums">{format(b.manualOpen)}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
               </button>
               {owedToMe && !settled && (
                 <Button
@@ -424,7 +438,13 @@ export default function People() {
                               {meta.emoji}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="font-medium truncate">{r.description}</div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium truncate">{r.description}</span>
+                                {(() => {
+                                  const e = expenses.find((x) => x.id === r.expense_id);
+                                  return e ? <SourceBadge expense={e} /> : null;
+                                })()}
+                              </div>
                               <div className="text-xs text-muted-foreground">
                                 {formatDate(r.date)} · {r.category}
                               </div>
@@ -502,8 +522,14 @@ export default function People() {
                             {meta.emoji}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="font-medium truncate line-through decoration-muted-foreground/50">
-                              {r.description}
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium truncate line-through decoration-muted-foreground/50">
+                                {r.description}
+                              </span>
+                              {(() => {
+                                const e = expenses.find((x) => x.id === r.expense_id);
+                                return e ? <SourceBadge expense={e} /> : null;
+                              })()}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {formatDate(r.date)} · {r.category}
