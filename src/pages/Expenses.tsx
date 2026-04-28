@@ -41,6 +41,7 @@ import { CategoryEditor } from "@/components/CategoryEditor";
 import { EventTagEditor } from "@/components/EventTagEditor";
 import { AddExpenseDialog } from "@/components/AddExpenseDialog";
 import { EditExpenseDialog } from "@/components/EditExpenseDialog";
+import { SourceBadge } from "@/components/SourceBadge";
 import { toast } from "sonner";
 
 export default function Expenses() {
