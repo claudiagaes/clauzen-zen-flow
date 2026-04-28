@@ -28,6 +28,7 @@ export function EditExpenseDialog({ open, onOpenChange, expense, onSaved }: Prop
   const [date, setDate] = useState("");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
+  const [myAmount, setMyAmount] = useState("");
   const [currency, setCurrency] = useState<Currency>("USD");
   const [category, setCategory] = useState<string>(CATEGORIES[0].key);
   const [notes, setNotes] = useState("");
@@ -38,6 +39,7 @@ export function EditExpenseDialog({ open, onOpenChange, expense, onSaved }: Prop
     setDate(expense.date.slice(0, 10));
     setDescription(expense.description);
     setAmount(String(expense.total_amount));
+    setMyAmount(expense.my_amount != null ? String(expense.my_amount) : "");
     setCurrency(expense.currency);
     setCategory(expense.category);
     setNotes(expense.notes ?? "");
@@ -50,11 +52,19 @@ export function EditExpenseDialog({ open, onOpenChange, expense, onSaved }: Prop
     if (!isFinite(amt) || amt <= 0) return toast.error("Amount must be > 0");
     if (!date) return toast.error("Pick a date");
 
+    let myAmt: number | null = null;
+    if (myAmount.trim() !== "") {
+      const parsed = parseFloat(myAmount);
+      if (!isFinite(parsed) || parsed < 0) return toast.error("Your share must be ≥ 0");
+      myAmt = parsed;
+    }
+
     setSubmitting(true);
     const ok = await updateExpense(expense.id, {
       date,
       description: description.trim(),
       total_amount: amt,
+      my_amount: myAmt,
       currency,
       category,
       notes: notes.trim() ? notes.trim() : null,
@@ -89,7 +99,7 @@ export function EditExpenseDialog({ open, onOpenChange, expense, onSaved }: Prop
               <Input id="edit-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="rounded-2xl" />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="edit-amount">Amount</Label>
+              <Label htmlFor="edit-amount">Total amount</Label>
               <Input
                 id="edit-amount"
                 type="number"
@@ -99,6 +109,19 @@ export function EditExpenseDialog({ open, onOpenChange, expense, onSaved }: Prop
                 className="rounded-2xl"
               />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-myamount">Your share <span className="text-muted-foreground font-normal">(leave empty to use total)</span></Label>
+            <Input
+              id="edit-myamount"
+              type="number"
+              step="0.01"
+              value={myAmount}
+              onChange={(e) => setMyAmount(e.target.value)}
+              className="rounded-2xl"
+              placeholder="Optional"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-3">

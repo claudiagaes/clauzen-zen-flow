@@ -302,18 +302,70 @@ export interface UpdateExpenseInput {
   description?: string;
   date?: string;
   total_amount?: number;
+  my_amount?: number | null;
   currency?: Currency;
   category?: string;
   notes?: string | null;
 }
 
 export async function updateExpense(expenseId: string, patch: UpdateExpenseInput): Promise<boolean> {
+  // Read previous total to rescale related rows proportionally.
+  const { data: prev, error: readErr } = await supabase
+    .from("expenses")
+    .select("total_amount")
+    .eq("id", expenseId)
+    .single();
+  logIfError("updateExpense.read", readErr);
+
   const { error } = await supabase
     .from("expenses")
     .update(patch)
     .eq("id", expenseId);
   logIfError("updateExpense", error);
-  return !error;
+  if (error) return false;
+
+  // If total changed, rescale splits.amount_owed and items.amount by the same ratio.
+  const prevTotal = (prev as { total_amount: number } | null)?.total_amount;
+  if (
+    patch.total_amount != null &&
+    prevTotal != null &&
+    Math.abs(prevTotal) > 0.005 &&
+    Math.abs(prevTotal - patch.total_amount) > 0.005
+  ) {
+    const ratio = patch.total_amount / prevTotal;
+
+    const { data: splits } = await supabase
+      .from("expense_splits")
+      .select("id, amount_owed")
+      .eq("expense_id", expenseId);
+    if (splits) {
+      await Promise.all(
+        splits.map((s: { id: string; amount_owed: number }) =>
+          supabase
+            .from("expense_splits")
+            .update({ amount_owed: +(s.amount_owed * ratio).toFixed(2) })
+            .eq("id", s.id),
+        ),
+      );
+    }
+
+    const { data: items } = await supabase
+      .from("expense_items")
+      .select("id, amount")
+      .eq("expense_id", expenseId);
+    if (items) {
+      await Promise.all(
+        items.map((it: { id: string; amount: number }) =>
+          supabase
+            .from("expense_items")
+            .update({ amount: +(it.amount * ratio).toFixed(2) })
+            .eq("id", it.id),
+        ),
+      );
+    }
+  }
+
+  return true;
 }
 
 export async function deleteExpense(expenseId: string): Promise<boolean> {
