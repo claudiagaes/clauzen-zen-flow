@@ -298,6 +298,33 @@ export async function updateExpenseEventTag(expenseId: string, eventTag: string 
   return !error;
 }
 
+export interface UpdateExpenseInput {
+  description?: string;
+  date?: string;
+  total_amount?: number;
+  currency?: Currency;
+  category?: string;
+  notes?: string | null;
+}
+
+export async function updateExpense(expenseId: string, patch: UpdateExpenseInput): Promise<boolean> {
+  const { error } = await supabase
+    .from("expenses")
+    .update(patch)
+    .eq("id", expenseId);
+  logIfError("updateExpense", error);
+  return !error;
+}
+
+export async function deleteExpense(expenseId: string): Promise<boolean> {
+  // Splits and items should cascade via FK; if not, delete them first.
+  await supabase.from("expense_splits").delete().eq("expense_id", expenseId);
+  await supabase.from("expense_items").delete().eq("expense_id", expenseId);
+  const { error } = await supabase.from("expenses").delete().eq("id", expenseId);
+  logIfError("deleteExpense", error);
+  return !error;
+}
+
 export interface NewExpenseInput {
   date: string; // ISO
   description: string;

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   CATEGORIES,
+  deleteExpense,
   getCategoryMeta,
   getExpenses,
   getItemsForExpense,
@@ -18,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { DateFilter, type DatePresetKey, type DateRange, presetToRange } from "@/components/DateFilter";
-import { ChevronDown, Check, X, Plus } from "lucide-react";
+import { ChevronDown, Check, X, Plus, Pencil, Trash2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -26,9 +27,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { CategoryEditor } from "@/components/CategoryEditor";
 import { EventTagEditor } from "@/components/EventTagEditor";
 import { AddExpenseDialog } from "@/components/AddExpenseDialog";
+import { EditExpenseDialog } from "@/components/EditExpenseDialog";
 import { toast } from "sonner";
 
 export default function Expenses() {
@@ -40,6 +52,8 @@ export default function Expenses() {
   const [currency, setCurrency] = useState<string>("all");
   const [openId, setOpenId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [editing, setEditing] = useState<Expense | null>(null);
+  const [deleting, setDeleting] = useState<Expense | null>(null);
   const { format, convert } = useCurrency();
 
   const refresh = () => getExpenses().then(setAll);
@@ -141,6 +155,8 @@ export default function Expenses() {
               onToggle={() => setOpenId(openId === e.id ? null : e.id)}
               onCategoryChange={(next) => handleCategoryChange(e.id, next)}
               onEventTagChange={(next) => handleEventTagChange(e.id, next)}
+              onEdit={() => setEditing(e)}
+              onDelete={() => setDeleting(e)}
               eventOptions={events}
               first={i === 0}
             />
@@ -149,6 +165,42 @@ export default function Expenses() {
       </Card>
 
       <AddExpenseDialog open={addOpen} onOpenChange={setAddOpen} onCreated={refresh} />
+      <EditExpenseDialog
+        open={!!editing}
+        onOpenChange={(o) => !o && setEditing(null)}
+        expense={editing}
+        onSaved={refresh}
+      />
+      <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
+        <AlertDialogContent className="rounded-3xl border-0 shadow-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display text-2xl">Delete this expense?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleting?.description} · {deleting && format(deleting.total_amount, deleting.currency)} — this can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-2xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-2xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (!deleting) return;
+                const target = deleting;
+                setDeleting(null);
+                const ok = await deleteExpense(target.id);
+                if (ok) {
+                  toast.success("Expense deleted");
+                  refresh();
+                } else {
+                  toast.error("Couldn't delete expense");
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -174,13 +226,15 @@ function FilterSelect({
 }
 
 function ExpenseRow({
-  expense, isOpen, onToggle, onCategoryChange, onEventTagChange, eventOptions, first,
+  expense, isOpen, onToggle, onCategoryChange, onEventTagChange, onEdit, onDelete, eventOptions, first,
 }: {
   expense: Expense;
   isOpen: boolean;
   onToggle: () => void;
   onCategoryChange: (next: string) => void;
   onEventTagChange: (next: string | null) => void;
+  onEdit: () => void;
+  onDelete: () => void;
   eventOptions: string[];
   first: boolean;
 }) {
@@ -250,6 +304,22 @@ function ExpenseRow({
               of {format(expense.total_amount, expense.currency)}
             </div>
           )}
+        </button>
+        <button
+          type="button"
+          onClick={onEdit}
+          className="h-8 w-8 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+          aria-label="Edit expense"
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="h-8 w-8 rounded-xl flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+          aria-label="Delete expense"
+        >
+          <Trash2 className="h-4 w-4" />
         </button>
         <button
           type="button"
