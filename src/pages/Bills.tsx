@@ -280,9 +280,11 @@ export default function Bills() {
 function BillCard({
   resolved,
   onMarkPaid,
+  onEdit,
 }: {
   resolved: ResolvedBill;
   onMarkPaid: () => void;
+  onEdit: () => void;
 }) {
   const { bill, nextDue, daysRemaining, paid } = resolved;
   const meta = getBillCategoryMeta(bill.category);
