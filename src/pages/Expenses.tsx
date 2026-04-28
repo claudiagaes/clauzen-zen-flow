@@ -52,6 +52,8 @@ export default function Expenses() {
   const [currency, setCurrency] = useState<string>("all");
   const [openId, setOpenId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [editing, setEditing] = useState<Expense | null>(null);
+  const [deleting, setDeleting] = useState<Expense | null>(null);
   const { format, convert } = useCurrency();
 
   const refresh = () => getExpenses().then(setAll);
