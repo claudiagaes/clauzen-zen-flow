@@ -134,17 +134,41 @@ export function isBillPaidForDueDate(
 
 // ---------- Queries ----------
 
-export async function getBills(): Promise<Bill[]> {
-  const { data, error } = await supabase
-    .from("bills")
-    .select("*")
-    .eq("is_active", true)
-    .order("name");
+export async function getBills(opts: { includeArchived?: boolean } = {}): Promise<Bill[]> {
+  let query = supabase.from("bills").select("*").order("name");
+  if (!opts.includeArchived) query = query.eq("is_active", true);
+  const { data, error } = await query;
   if (error) {
     console.error("getBills", error);
     return [];
   }
   return (data ?? []) as Bill[];
+}
+
+export interface UpdateBillInput {
+  name?: string;
+  emoji?: string | null;
+  amount?: number | null;
+  currency?: BillCurrency;
+  due_day?: number | null;
+  due_day_end_of_month?: boolean;
+  due_date?: string | null;
+  notes?: string | null;
+  is_active?: boolean;
+}
+
+export async function updateBill(id: string, patch: UpdateBillInput): Promise<Bill | null> {
+  const { data, error } = await supabase
+    .from("bills")
+    .update(patch)
+    .eq("id", id)
+    .select("*")
+    .single();
+  if (error) {
+    console.error("updateBill", error);
+    return null;
+  }
+  return data as Bill;
 }
 
 export async function getBillPayments(): Promise<BillPayment[]> {
