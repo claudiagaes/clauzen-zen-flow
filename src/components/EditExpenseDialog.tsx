@@ -84,9 +84,19 @@ export function EditExpenseDialog({ open, onOpenChange, expense, onSaved }: Prop
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="rounded-3xl border-0 shadow-card max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-display text-2xl">Edit expense</DialogTitle>
+          <DialogTitle className="font-display text-2xl flex items-center gap-2">
+            Edit expense
+            {expense && <SourceBadge expense={expense} />}
+          </DialogTitle>
           <DialogDescription>Update the details and save.</DialogDescription>
         </DialogHeader>
+
+        {expense && getExpenseSource(expense) === "splitwise" && (
+          <div className="flex items-start gap-2 rounded-2xl bg-purple-100/60 dark:bg-purple-500/10 text-purple-800 dark:text-purple-200 px-4 py-3 text-xs">
+            <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>This expense comes from Splitwise — edit with caution. Changes here won't sync back to Splitwise.</span>
+          </div>
+        )}
 
         <div className="space-y-4 mt-2">
           <div className="space-y-1.5">
