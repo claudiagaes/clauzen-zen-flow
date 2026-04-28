@@ -93,6 +93,21 @@ export function getMyAmount(e: Pick<Expense, "my_amount" | "total_amount">): num
   return e.my_amount ?? e.total_amount;
 }
 
+export type ExpenseSource = "splitwise" | "rockie" | "manual";
+
+/** Determine where an expense originated. */
+export function getExpenseSource(
+  e: Pick<Expense, "splitwise_expense_id" | "notes" | "description">,
+): ExpenseSource {
+  if (e.splitwise_expense_id) return "splitwise";
+  const notes = (e.notes ?? "").toLowerCase();
+  const desc = (e.description ?? "").toLowerCase();
+  if (notes.includes("rockie") || desc.includes("rockie") || notes.includes("whatsapp")) {
+    return "rockie";
+  }
+  return "manual";
+}
+
 // ---------- Mock dataset (shaped like Supabase rows) ----------
 
 const today = new Date();
