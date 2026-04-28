@@ -16,8 +16,9 @@ import {
 import { convertAmount, formatMoney, formatOriginal } from "@/lib/format";
 import { AddBillDialog } from "@/components/AddBillDialog";
 import { MarkBillPaidDialog } from "@/components/MarkBillPaidDialog";
+import { EditBillDialog } from "@/components/EditBillDialog";
 import { CreditCardsSection } from "@/components/CreditCardsSection";
-import { Check, Plus } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Pencil, Plus } from "lucide-react";
 
 interface ResolvedBill {
   bill: Bill;
