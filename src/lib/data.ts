@@ -100,11 +100,8 @@ export function getExpenseSource(
   e: Pick<Expense, "splitwise_expense_id" | "notes" | "description">,
 ): ExpenseSource {
   if (e.splitwise_expense_id) return "splitwise";
-  const notes = (e.notes ?? "").toLowerCase();
-  const desc = (e.description ?? "").toLowerCase();
-  if (notes.includes("rockie") || desc.includes("rockie") || notes.includes("whatsapp")) {
-    return "rockie";
-  }
+  const notes = (e.notes ?? "").trimStart();
+  if (notes.toLowerCase().startsWith("[rockie]")) return "rockie";
   return "manual";
 }
 
