@@ -155,6 +155,8 @@ export default function Expenses() {
               onToggle={() => setOpenId(openId === e.id ? null : e.id)}
               onCategoryChange={(next) => handleCategoryChange(e.id, next)}
               onEventTagChange={(next) => handleEventTagChange(e.id, next)}
+              onEdit={() => setEditing(e)}
+              onDelete={() => setDeleting(e)}
               eventOptions={events}
               first={i === 0}
             />
@@ -163,6 +165,42 @@ export default function Expenses() {
       </Card>
 
       <AddExpenseDialog open={addOpen} onOpenChange={setAddOpen} onCreated={refresh} />
+      <EditExpenseDialog
+        open={!!editing}
+        onOpenChange={(o) => !o && setEditing(null)}
+        expense={editing}
+        onSaved={refresh}
+      />
+      <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
+        <AlertDialogContent className="rounded-3xl border-0 shadow-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="font-display text-2xl">Delete this expense?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleting?.description} · {deleting && format(deleting.total_amount, deleting.currency)} — this can't be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-2xl">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="rounded-2xl bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (!deleting) return;
+                const target = deleting;
+                setDeleting(null);
+                const ok = await deleteExpense(target.id);
+                if (ok) {
+                  toast.success("Expense deleted");
+                  refresh();
+                } else {
+                  toast.error("Couldn't delete expense");
+                }
+              }}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
