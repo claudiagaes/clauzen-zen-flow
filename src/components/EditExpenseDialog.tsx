@@ -99,7 +99,7 @@ export function EditExpenseDialog({ open, onOpenChange, expense, onSaved }: Prop
               <Input id="edit-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} className="rounded-2xl" />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="edit-amount">Amount</Label>
+              <Label htmlFor="edit-amount">Total amount</Label>
               <Input
                 id="edit-amount"
                 type="number"
@@ -110,6 +110,18 @@ export function EditExpenseDialog({ open, onOpenChange, expense, onSaved }: Prop
               />
             </div>
           </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="edit-myamount">Your share <span className="text-muted-foreground font-normal">(leave empty to use total)</span></Label>
+            <Input
+              id="edit-myamount"
+              type="number"
+              step="0.01"
+              value={myAmount}
+              onChange={(e) => setMyAmount(e.target.value)}
+              className="rounded-2xl"
+              placeholder="Optional"
+            />
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
