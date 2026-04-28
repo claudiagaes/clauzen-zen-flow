@@ -36,17 +36,22 @@ const BUCKETS: { key: BillBucket; label: string; emoji: string }[] = [
 
 export default function Bills() {
   const [bills, setBills] = useState<Bill[]>([]);
+  const [archivedBills, setArchivedBills] = useState<Bill[]>([]);
   const [payments, setPayments] = useState<BillPayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [activeBill, setActiveBill] = useState<Bill | null>(null);
   const [activeDue, setActiveDue] = useState<Date | null>(null);
+  const [editBill, setEditBill] = useState<Bill | null>(null);
+  const [archivedOpen, setArchivedOpen] = useState(false);
 
   const refresh = async () => {
     setLoading(true);
-    const [b, p] = await Promise.all([getBills(), getBillPayments()]);
-    setBills(b);
+    const [all, p] = await Promise.all([getBills({ includeArchived: true }), getBillPayments()]);
+    setBills(all.filter((b) => b.is_active));
+    setArchivedBills(all.filter((b) => !b.is_active));
     setPayments(p);
     setLoading(false);
   };
@@ -98,6 +103,11 @@ export default function Bills() {
     setActiveBill(bill);
     setActiveDue(due);
     setPayOpen(true);
+  };
+
+  const openEdit = (bill: Bill) => {
+    setEditBill(bill);
+    setEditOpen(true);
   };
 
   return (
