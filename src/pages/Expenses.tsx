@@ -80,7 +80,7 @@ export default function Expenses() {
         const t = +new Date(x.date);
         if (t < +dateRange.from || t > +dateRange.to) return false;
       }
-      if (category !== "all" && x.category !== category) return false;
+      if (category !== "all" && resolveCategory(x.category) !== category) return false;
       if (event !== "all" && x.event_tag !== event) return false;
       if (currency !== "all" && x.currency !== currency) return false;
       return true;
