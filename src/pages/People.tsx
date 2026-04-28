@@ -132,7 +132,7 @@ export default function People() {
       const amount = convert(s.amount_owed, e.currency);
 
       // Determine direction.
-      const iOweThem = hasOwePrefix ? true : e.paid_by !== ME;
+      const iOweThem = hasOwePrefix ? true : !isMe(e.paid_by);
 
       if (s.is_paid) {
         // Paid → already settled; do NOT add to net or open balances.
