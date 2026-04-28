@@ -122,6 +122,7 @@ export function EditExpenseDialog({ open, onOpenChange, expense, onSaved }: Prop
               className="rounded-2xl"
               placeholder="Optional"
             />
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
