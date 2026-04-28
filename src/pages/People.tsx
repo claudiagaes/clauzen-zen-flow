@@ -21,6 +21,9 @@ import { SourceBadge } from "@/components/SourceBadge";
 import { getExpenseSource } from "@/lib/data";
 
 const ME = "Claudia";
+/** Case-insensitive check: is this name "me" (Claudia)? Handles "claudia", "CLAUDIA", " Claudia ", etc. */
+const isMe = (name: string | null | undefined) =>
+  !!name && name.trim().toLowerCase() === ME.toLowerCase();
 
 type FilterMode = "all" | "they-owe" | "i-owe";
 
