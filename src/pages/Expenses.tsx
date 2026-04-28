@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   CATEGORIES,
+  deleteExpense,
   getCategoryMeta,
   getExpenses,
   getItemsForExpense,
@@ -18,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { formatDate } from "@/lib/format";
 import { useCurrency } from "@/contexts/CurrencyContext";
 import { DateFilter, type DatePresetKey, type DateRange, presetToRange } from "@/components/DateFilter";
-import { ChevronDown, Check, X, Plus } from "lucide-react";
+import { ChevronDown, Check, X, Plus, Pencil, Trash2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -26,9 +27,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { CategoryEditor } from "@/components/CategoryEditor";
 import { EventTagEditor } from "@/components/EventTagEditor";
 import { AddExpenseDialog } from "@/components/AddExpenseDialog";
+import { EditExpenseDialog } from "@/components/EditExpenseDialog";
 import { toast } from "sonner";
 
 export default function Expenses() {
