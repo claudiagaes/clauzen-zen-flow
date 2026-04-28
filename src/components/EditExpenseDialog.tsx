@@ -11,8 +11,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CATEGORIES, updateExpense, type Currency, type Expense } from "@/lib/data";
-import { Loader2 } from "lucide-react";
+import { CATEGORIES, getExpenseSource, updateExpense, type Currency, type Expense } from "@/lib/data";
+import { SourceBadge } from "@/components/SourceBadge";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const CURRENCIES: Currency[] = ["USD", "EUR", "GBP", "MXN"];
