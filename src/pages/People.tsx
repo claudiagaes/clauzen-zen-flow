@@ -193,10 +193,10 @@ export default function People() {
       if (!e) continue;
       const hasOwePrefix = OWE_PREFIX_RE.test(s.person_name);
       const cleanName = s.person_name.replace(OWE_PREFIX_RE, "").trim();
-      if (!hasOwePrefix && cleanName !== ME && e.paid_by !== ME) continue;
-      const other = hasOwePrefix ? cleanName : e.paid_by === ME ? cleanName : e.paid_by;
+      if (!hasOwePrefix && !isMe(cleanName) && !isMe(e.paid_by)) continue;
+      const other = hasOwePrefix ? cleanName : isMe(e.paid_by) ? cleanName : e.paid_by;
       if (other !== selectedPerson) continue;
-      const iOweThem = hasOwePrefix ? true : e.paid_by !== ME;
+      const iOweThem = hasOwePrefix ? true : !isMe(e.paid_by);
       rows.push({
         id: s.id,
         expense_id: s.expense_id,
