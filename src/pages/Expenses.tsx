@@ -188,13 +188,15 @@ function FilterSelect({
 }
 
 function ExpenseRow({
-  expense, isOpen, onToggle, onCategoryChange, onEventTagChange, eventOptions, first,
+  expense, isOpen, onToggle, onCategoryChange, onEventTagChange, onEdit, onDelete, eventOptions, first,
 }: {
   expense: Expense;
   isOpen: boolean;
   onToggle: () => void;
   onCategoryChange: (next: string) => void;
   onEventTagChange: (next: string | null) => void;
+  onEdit: () => void;
+  onDelete: () => void;
   eventOptions: string[];
   first: boolean;
 }) {
