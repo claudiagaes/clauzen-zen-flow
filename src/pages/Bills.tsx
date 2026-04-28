@@ -190,7 +190,7 @@ export default function Bills() {
                 </h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {items.map((r) => (
-                    <BillCard key={r.bill.id} resolved={r} onMarkPaid={() => openPay(r.bill, r.nextDue)} />
+                    <BillCard key={r.bill.id} resolved={r} onMarkPaid={() => openPay(r.bill, r.nextDue)} onEdit={() => openEdit(r.bill)} />
                   ))}
                 </div>
               </section>
@@ -207,7 +207,7 @@ export default function Bills() {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {paidThisCycle.map((r) => (
-                  <BillCard key={r.bill.id} resolved={r} onMarkPaid={() => openPay(r.bill, r.nextDue)} />
+                  <BillCard key={r.bill.id} resolved={r} onMarkPaid={() => openPay(r.bill, r.nextDue)} onEdit={() => openEdit(r.bill)} />
                 ))}
               </div>
             </section>
@@ -226,6 +226,44 @@ export default function Bills() {
         </div>
       )}
 
+      {archivedBills.length > 0 && (
+        <section className="rise-in">
+          <button
+            onClick={() => setArchivedOpen((v) => !v)}
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {archivedOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            <span>📦 Archived</span>
+            <span className="text-xs">({archivedBills.length})</span>
+          </button>
+          {archivedOpen && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-3 opacity-70">
+              {archivedBills.map((bill) => {
+                const meta = getBillCategoryMeta(bill.category);
+                return (
+                  <Card key={bill.id} className="rounded-3xl border-0 shadow-soft bg-card p-4 flex items-center gap-3">
+                    <div className="h-12 w-12 rounded-2xl flex items-center justify-center text-xl shrink-0 bg-secondary">
+                      {bill.emoji ?? meta.emoji}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-medium truncate">{bill.name}</div>
+                      <div className="text-xs text-muted-foreground mt-0.5">Archived</div>
+                    </div>
+                    <button
+                      onClick={() => openEdit(bill)}
+                      className="p-2 rounded-xl hover:bg-secondary transition-colors"
+                      aria-label="Edit bill"
+                    >
+                      <Pencil className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
+
       <AddBillDialog open={addOpen} onOpenChange={setAddOpen} onCreated={refresh} />
       <MarkBillPaidDialog
         open={payOpen}
@@ -234,6 +272,7 @@ export default function Bills() {
         expectedDue={activeDue}
         onPaid={refresh}
       />
+      <EditBillDialog open={editOpen} onOpenChange={setEditOpen} bill={editBill} onSaved={refresh} />
     </div>
   );
 }
