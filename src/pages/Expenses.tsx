@@ -6,6 +6,7 @@ import {
   getItemsForExpense,
   getMyAmount,
   getSplitsForExpense,
+  resolveCategory,
   updateExpenseCategory,
   updateExpenseEventTag,
   type Expense,
