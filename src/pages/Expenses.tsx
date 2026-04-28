@@ -267,6 +267,22 @@ function ExpenseRow({
         </button>
         <button
           type="button"
+          onClick={onEdit}
+          className="h-8 w-8 rounded-xl flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+          aria-label="Edit expense"
+        >
+          <Pencil className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="h-8 w-8 rounded-xl flex items-center justify-center text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+          aria-label="Delete expense"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
           onClick={onToggle}
           aria-label={isOpen ? "Collapse" : "Expand"}
         >
