@@ -28,6 +28,7 @@ export function EditExpenseDialog({ open, onOpenChange, expense, onSaved }: Prop
   const [date, setDate] = useState("");
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
+  const [myAmount, setMyAmount] = useState("");
   const [currency, setCurrency] = useState<Currency>("USD");
   const [category, setCategory] = useState<string>(CATEGORIES[0].key);
   const [notes, setNotes] = useState("");
@@ -38,6 +39,7 @@ export function EditExpenseDialog({ open, onOpenChange, expense, onSaved }: Prop
     setDate(expense.date.slice(0, 10));
     setDescription(expense.description);
     setAmount(String(expense.total_amount));
+    setMyAmount(expense.my_amount != null ? String(expense.my_amount) : "");
     setCurrency(expense.currency);
     setCategory(expense.category);
     setNotes(expense.notes ?? "");
@@ -50,11 +52,19 @@ export function EditExpenseDialog({ open, onOpenChange, expense, onSaved }: Prop
     if (!isFinite(amt) || amt <= 0) return toast.error("Amount must be > 0");
     if (!date) return toast.error("Pick a date");
 
+    let myAmt: number | null = null;
+    if (myAmount.trim() !== "") {
+      const parsed = parseFloat(myAmount);
+      if (!isFinite(parsed) || parsed < 0) return toast.error("Your share must be ≥ 0");
+      myAmt = parsed;
+    }
+
     setSubmitting(true);
     const ok = await updateExpense(expense.id, {
       date,
       description: description.trim(),
       total_amount: amt,
+      my_amount: myAmt,
       currency,
       category,
       notes: notes.trim() ? notes.trim() : null,
