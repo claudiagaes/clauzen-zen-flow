@@ -81,10 +81,15 @@ export default function Expenses() {
     }
   };
 
-  const events = useMemo(
-    () => Array.from(new Set(all.map((e) => e.event_tag).filter(Boolean) as string[])),
-    [all],
-  );
+  // Always-available event tags, even if no expenses currently use them.
+  const PINNED_EVENTS: { value: string; label: string }[] = [
+    { value: "broken-foot", label: "🦶 Broken Foot" },
+  ];
+  const events = useMemo(() => {
+    const fromData = new Set(all.map((e) => e.event_tag).filter(Boolean) as string[]);
+    PINNED_EVENTS.forEach((p) => fromData.add(p.value));
+    return Array.from(fromData);
+  }, [all]);
   const currencies = useMemo(() => Array.from(new Set(all.map((e) => e.currency))), [all]);
 
   const filtered = useMemo(() => {
@@ -129,7 +134,13 @@ export default function Expenses() {
             options={[{ value: "all", label: "All categories" }, ...CATEGORIES.map(c => ({ value: c.key, label: `${c.emoji} ${c.key}` }))]}
           />
           <FilterSelect value={event} onChange={setEvent} placeholder="All events"
-            options={[{ value: "all", label: "All events" }, ...events.map(e => ({ value: e, label: e }))]}
+            options={[
+              { value: "all", label: "All events" },
+              ...events.map((e) => {
+                const pinned = PINNED_EVENTS.find((p) => p.value === e);
+                return { value: e, label: pinned ? pinned.label : e };
+              }),
+            ]}
           />
           <FilterSelect value={currency} onChange={setCurrency} placeholder="All currencies"
             options={[{ value: "all", label: "All currencies" }, ...currencies.map(c => ({ value: c, label: c }))]}
