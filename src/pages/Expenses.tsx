@@ -270,7 +270,10 @@ function ExpenseRow({
           onClick={onToggle}
           className="min-w-0 flex-1 text-left"
         >
-          <div className="text-sm font-medium truncate">{expense.description}</div>
+          <div className="text-sm font-medium truncate flex items-center gap-2">
+            <span className="truncate">{expense.description}</span>
+            <SourceBadge expense={expense} className="shrink-0" />
+          </div>
           <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2 flex-wrap">
             <span>{formatDate(expense.date, { month: "short", day: "numeric", year: "numeric" })}</span>
             {expense.is_shared && <><span>·</span><span className="text-primary">shared</span></>}
