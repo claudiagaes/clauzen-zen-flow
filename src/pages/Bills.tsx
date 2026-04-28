@@ -345,6 +345,13 @@ function BillCard({
           </button>
         )}
       </div>
+      <button
+        onClick={onEdit}
+        className="p-2 rounded-xl hover:bg-secondary transition-colors shrink-0"
+        aria-label="Edit bill"
+      >
+        <Pencil className="h-4 w-4 text-muted-foreground" />
+      </button>
     </Card>
   );
 }
