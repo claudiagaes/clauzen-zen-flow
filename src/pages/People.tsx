@@ -17,6 +17,8 @@ import { useCurrency } from "@/contexts/CurrencyContext";
 import { ArrowDownLeft, ArrowUpRight, Bell, ChevronDown, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { SourceBadge } from "@/components/SourceBadge";
+import { getExpenseSource } from "@/lib/data";
 
 const ME = "Claudia";
 
@@ -81,11 +83,28 @@ export default function People() {
     // settled tracks paid amounts for display.
     const map = new Map<
       string,
-      { net: number; theyOwe: number; iOwe: number; pending: number; settled: number }
+      {
+        net: number;
+        theyOwe: number;
+        iOwe: number;
+        pending: number;
+        settled: number;
+        splitwiseOpen: number; // unpaid amount from Splitwise-sourced expenses
+        manualOpen: number; // unpaid amount from manually logged expenses
+      }
     >();
     const expenseById = new Map(expenses.map((e) => [e.id, e]));
     const get = (p: string) => {
-      if (!map.has(p)) map.set(p, { net: 0, theyOwe: 0, iOwe: 0, pending: 0, settled: 0 });
+      if (!map.has(p))
+        map.set(p, {
+          net: 0,
+          theyOwe: 0,
+          iOwe: 0,
+          pending: 0,
+          settled: 0,
+          splitwiseOpen: 0,
+          manualOpen: 0,
+        });
       return map.get(p)!;
     };
     // Direction convention:
@@ -124,6 +143,9 @@ export default function People() {
           b.net += amount;
           b.theyOwe += amount;
         }
+        // Tag unpaid amount by source so we can show a Splitwise vs Manual breakdown.
+        if (getExpenseSource(e) === "splitwise") b.splitwiseOpen += amount;
+        else b.manualOpen += amount;
       }
     }
     return Array.from(map.entries())
@@ -304,6 +326,20 @@ export default function People() {
                   <span>Pending {format(b.pending)}</span>
                   <span>Settled {format(b.settled)}</span>
                 </div>
+                {(b.splitwiseOpen > 0.005 || b.manualOpen > 0.005) && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    {b.splitwiseOpen > 0.005 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-200">
+                        Splitwise <span className="tabular-nums">{format(b.splitwiseOpen)}</span>
+                      </span>
+                    )}
+                    {b.manualOpen > 0.005 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-muted text-muted-foreground">
+                        Manual <span className="tabular-nums">{format(b.manualOpen)}</span>
+                      </span>
+                    )}
+                  </div>
+                )}
               </button>
               {owedToMe && !settled && (
                 <Button
@@ -402,7 +438,13 @@ export default function People() {
                               {meta.emoji}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="font-medium truncate">{r.description}</div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium truncate">{r.description}</span>
+                                {(() => {
+                                  const e = expenses.find((x) => x.id === r.expense_id);
+                                  return e ? <SourceBadge expense={e} /> : null;
+                                })()}
+                              </div>
                               <div className="text-xs text-muted-foreground">
                                 {formatDate(r.date)} · {r.category}
                               </div>
@@ -480,8 +522,14 @@ export default function People() {
                             {meta.emoji}
                           </div>
                           <div className="min-w-0 flex-1">
-                            <div className="font-medium truncate line-through decoration-muted-foreground/50">
-                              {r.description}
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium truncate line-through decoration-muted-foreground/50">
+                                {r.description}
+                              </span>
+                              {(() => {
+                                const e = expenses.find((x) => x.id === r.expense_id);
+                                return e ? <SourceBadge expense={e} /> : null;
+                              })()}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {formatDate(r.date)} · {r.category}
